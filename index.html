@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Reverb &amp; Delay Counter (TOOL / 006) by Saint Gordon Collective — 100% in-browser studio tempo calculator for delay ms/Hz/samples, tempo-synced reverb pre-delay &amp; RT60 decay, compressor sidechain timings, swing offsets, tap tempo, and Web Audio auditioning."
+    />
+    <title>Reverb &amp; Delay Counter — Saint Gordon Collective</title>
+    <link rel="icon" href="assets/icons/mark.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="assets/fonts/OPTIEngraversOldEnglish.woff"
+      as="font"
+      type="font/woff"
+      crossorigin
+    />
+    <link rel="stylesheet" href="app.css?v=20261124-1" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to tempo console</a>
+
+    <!-- Saint Gordon Collective Header -->
+    <header class="site-header">
+      <div class="header-inner">
+        <a
+          class="brand"
+          href="#top"
+          id="brand-home-link"
+          aria-label="Reverb &amp; Delay Counter by Saint Gordon Collective"
+        >
+          <img
+            src="assets/icons/mark.svg"
+            alt=""
+            width="36"
+            height="36"
+            class="brand-mark"
+          />
+          <span class="brand-text">
+            <span class="brand-name">Saint Gordon</span>
+            <span class="brand-sub">REVERB &amp; DELAY COUNTER · TEMPO CALC</span>
+          </span>
+        </a>
+
+        <nav class="header-nav" aria-label="Calculator sections and links">
+          <div class="phase-steps">
+            <a class="phase-step active" href="#section-delay" data-nav="delay">
+              <span class="step-roman">I</span>
+              <span>Delay</span>
+            </a>
+            <a class="phase-step" href="#section-reverb" data-nav="reverb">
+              <span class="step-roman">II</span>
+              <span>Reverb</span>
+            </a>
+            <a class="phase-step" href="#section-groove" data-nav="groove">
+              <span class="step-roman">III</span>
+              <span>Groove</span>
+            </a>
+          </div>
+
+          <div class="header-actions">
+            <span class="privacy-badge" id="mode-status-badge">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span>100% In-Browser</span>
+            </span>
+            <a
+              class="header-ext-link micro"
+              href="https://saintgordon.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Collective ↗
+            </a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="app-main">
+      <!-- Editorial Hero -->
+      <section id="top" class="hero-section" aria-labelledby="page-heading">
+        <div class="hero-meta micro">
+          <span>TOOL / 006 · STUDIO TEMPO CALCULATOR</span>
+          <span>SAINT GORDON / REVERB &amp; DELAY COUNTER</span>
+        </div>
+
+        <div class="hero-band">
+          <div class="hero-title-col">
+            <h1 id="page-heading" class="page-wordmark">
+              Reverb &amp; Delay Counter
+              <span>TEMPO TIMING CONSOLE</span>
+            </h1>
+          </div>
+          <div class="hero-copy-col">
+            <p class="hero-lead">
+              Lock every delay repeat, pre-delay gap, reverb decay tail, and sidechain release strictly to the pocket.
+            </p>
+            <p class="hero-sub">
+              Dial in any BPM from 20 to 300, tap live, or drop a track to read its tempo automatically.
+              Copy exact milliseconds, LFO Hz, and 44.1/48 kHz samples in one click — and audition every delay
+              subdivision or RT60 reverb preset live in Web Audio before touching your DAW.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dark Hardware Tempo & Audition Console -->
+      <section class="console-section" aria-label="Tempo and audio audition console">
+        <div class="studio-deck" id="studio-deck" data-state="standby">
+          <input
+            type="file"
+            id="bpm-audio-input"
+            accept="audio/*,.wav,.mp3,.flac,.aif,.aiff,.m4a,.aac,.ogg,.opus"
+            class="sr-only"
+          />
+
+          <div class="deck-head">
+            <div class="deck-id">
+              <span class="deck-led" id="deck-beat-led" aria-hidden="true"></span>
+              <span class="deck-label">TEMPO DECK // CLOCK &amp; AUDITION</span>
+              <span class="deck-sub-id" id="deck-live-readout">120 BPM · 4/4 GRID</span>
+            </div>
+
+            <div class="deck-head-right">
+              <button
+                type="button"
+                id="btn-drop-song"
+                class="deck-drop-strip"
+                title="Click or drag &amp; drop an audio file anywhere on the console to estimate BPM"
+              >
+                <span aria-hidden="true">↓</span>
+                <span id="drop-song-label">Drop Song to Read BPM</span>
+              </button>
+              <span class="deck-state" id="deck-state-pill">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- Detected Audio Track Banner (shown after dropping a song) -->
+          <div id="bpm-detect-banner" class="detect-banner hidden" role="status" aria-live="polite">
+            <div class="detect-banner-info">
+              <span class="micro">AUTO-BPM ESTIMATE</span>
+              <span id="bpm-detect-detail" class="detect-detail"></span>
+            </div>
+            <div class="detect-banner-actions">
+              <button type="button" id="btn-detect-half" class="deck-pill-btn deck-pill-xs">÷2 Half</button>
+              <button type="button" id="btn-detect-double" class="deck-pill-btn deck-pill-xs">×2 Double</button>
+              <button type="button" id="btn-detect-dismiss" class="deck-pill-btn deck-pill-xs" aria-label="Dismiss detection banner">×</button>
+            </div>
+          </div>
+
+          <div class="tempo-console-grid">
+            <!-- Left Column: Big BPM Display + Numeric & Nudge Controls -->
+            <div class="tempo-main-panel">
+              <div class="bpm-display-block">
+                <div class="bpm-readout-wrap">
+                  <div class="bpm-hero-number" id="bpm-hero-display" aria-live="polite">120</div>
+                  <div class="bpm-hero-meta">
+                    <span class="micro bpm-unit-label">BEATS PER MINUTE</span>
+                    <div class="beat-dots" id="beat-dots" aria-hidden="true">
+                      <span class="beat-dot" data-beat="0">1</span>
+                      <span class="beat-dot" data-beat="1">2</span>
+                      <span class="beat-dot" data-beat="2">3</span>
+                      <span class="beat-dot" data-beat="3">4</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bpm-input-row">
+                  <label class="bpm-input-label" for="bpm-input">
+                    <span class="micro">EXACT BPM (20–300)</span>
+                    <input
+                      type="number"
+                      id="bpm-input"
+                      class="deck-bpm-input"
+                      min="20"
+                      max="300"
+                      step="any"
+                      value="120"
+                      inputmode="decimal"
+                      aria-label="Tempo in beats per minute"
+                    />
+                  </label>
+
+                  <div class="nudge-grid" role="group" aria-label="Tempo step adjustments">
+                    <button type="button" class="deck-nudge-btn" data-nudge="-1" title="Decrease BPM by 1 (-)">-1</button>
+                    <button type="button" class="deck-nudge-btn" data-nudge="-0.5" title="Decrease BPM by 0.5 (Shift+-)">-0.5</button>
+                    <button type="button" class="deck-nudge-btn" data-nudge="0.5" title="Increase BPM by 0.5 (Shift++)">+0.5</button>
+                    <button type="button" class="deck-nudge-btn" data-nudge="1" title="Increase BPM by 1 (+)">+1</button>
+                    <button type="button" class="deck-nudge-btn deck-nudge-scale" data-scale="0.5" title="Half-Time (÷2)">÷2</button>
+                    <button type="button" class="deck-nudge-btn deck-nudge-scale" data-scale="2" title="Double-Time (×2)">×2</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Genre Tempo Pills -->
+              <div class="genre-pills-block">
+                <span class="micro genre-kicker">QUICK TEMPO PRESETS</span>
+                <div class="genre-pills" id="genre-pills" role="group" aria-label="Genre BPM presets">
+                  <button type="button" class="genre-pill" data-bpm="75"><strong>75</strong> <span>Slow</span></button>
+                  <button type="button" class="genre-pill" data-bpm="90"><strong>90</strong> <span>Boom-Bap</span></button>
+                  <button type="button" class="genre-pill active" data-bpm="120"><strong>120</strong> <span>House</span></button>
+                  <button type="button" class="genre-pill" data-bpm="140"><strong>140</strong> <span>Trap / Half-Time</span></button>
+                  <button type="button" class="genre-pill" data-bpm="160"><strong>160</strong> <span>Fast</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Tactile Tap Tempo Pad & Audition Transport -->
+            <div class="tempo-side-panel">
+              <button
+                type="button"
+                id="btn-tap-tempo"
+                class="tap-pad"
+                aria-label="Tap tempo pad. Click repeatedly or press T on keyboard."
+              >
+                <span class="tap-pad-top micro">
+                  <span class="tap-led-wrap">
+                    <span class="tap-led" id="tap-pad-led" aria-hidden="true"></span>
+                    <span id="tap-stability-label">READY</span>
+                  </span>
+                  <kbd>T</kbd>
+                </span>
+                <span class="tap-pad-title">Tap Tempo</span>
+                <span class="tap-pad-meta micro" id="tap-count-meta">
+                  8-TAP ROLLING AVG · AUTO-RESET 2.5S
+                </span>
+              </button>
+
+              <div class="deck-audio-controls">
+                <button
+                  type="button"
+                  id="btn-metronome"
+                  class="deck-pill-btn deck-metro-btn"
+                  aria-pressed="false"
+                  title="Toggle studio click metronome (M)"
+                >
+                  <span id="metro-glyph" aria-hidden="true">▶</span>
+                  <span id="metro-label">Metronome</span>
+                  <kbd>M</kbd>
+                </button>
+
+                <button
+                  type="button"
+                  id="btn-stop-audio"
+                  class="deck-pill-btn"
+                  disabled
+                  title="Stop metronome and active audition (Esc)"
+                >
+                  ■ Stop <kbd>Esc</kbd>
+                </button>
+
+                <label class="deck-volume" for="audition-volume-slider">
+                  <span class="micro">VOL</span>
+                  <input
+                    type="range"
+                    id="audition-volume-slider"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.85"
+                    aria-label="Audition output volume"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Instant Master Reference Strip (4 Copyable Metric Tiles) -->
+          <div class="deck-summary-grid" id="tempo-summary-grid">
+            <button type="button" class="summary-tile copy-target" id="summary-beat-btn" title="Click to copy 1 Beat ms">
+              <span class="micro summary-kicker">1 BEAT (1/4 NOTE)</span>
+              <span class="summary-val" id="summary-beat-ms">500.00 ms</span>
+              <span class="micro summary-sub" id="summary-beat-sec">0.500 s · CLICK TO COPY</span>
+            </button>
+
+            <button type="button" class="summary-tile copy-target" id="summary-bar-btn" title="Click to copy 1 Bar ms">
+              <span class="micro summary-kicker">1 BAR (4/4 WHOLE)</span>
+              <span class="summary-val" id="summary-bar-ms">2000.00 ms</span>
+              <span class="micro summary-sub" id="summary-bar-sec">2.000 s · CLICK TO COPY</span>
+            </button>
+
+            <button type="button" class="summary-tile copy-target" id="summary-hz-btn" title="Click to copy Quarter-Note LFO Hz">
+              <span class="micro summary-kicker">BEAT LFO RATE</span>
+              <span class="summary-val" id="summary-beat-hz">2.00 Hz</span>
+              <span class="micro summary-sub">QUARTER CYCLE · CLICK TO COPY</span>
+            </button>
+
+            <button type="button" class="summary-tile copy-target" id="summary-samples-btn" title="Click to copy 48 kHz samples per beat">
+              <span class="micro summary-kicker">SAMPLES / BEAT</span>
+              <span class="summary-val" id="summary-beat-48k">24,000</span>
+              <span class="micro summary-sub" id="summary-beat-44k">48k · 44.1k: 22,050</span>
+            </button>
+          </div>
+
+          <!-- Keyboard Shortcuts Strip -->
+          <div class="deck-shortcuts micro">
+            <span><kbd>T</kbd> Tap Tempo</span>
+            <span><kbd>M</kbd> Metronome</span>
+            <span><kbd>-</kbd>/<kbd>+</kbd> ±1 BPM</span>
+            <span><kbd>Shift</kbd>+<kbd>-</kbd>/<kbd>+</kbd> ±0.5</span>
+            <span><kbd>Esc</kbd> Stop Audio</span>
+            <span>Click any ms / Hz to copy · Click ▶ to audition</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 001: DELAY TIME & LFO MATRIX ================= -->
+      <section id="section-delay" class="tool-section" aria-labelledby="delay-heading">
+        <div class="section-bar">
+          <div>
+            <span class="micro">001 / DELAY &amp; MODULATION MATRIX</span>
+            <h2 id="delay-heading" class="section-title">Delay Time, LFO Hz &amp; Sample Matrix</h2>
+            <p class="section-sub">
+              Click any <strong>ms</strong> or <strong>Hz</strong> figure to copy instantly. Click <strong>▶</strong>
+              (or double-click any cell) to hear that exact delay timing live through Web Audio.
+            </p>
+          </div>
+          <div class="section-bar-actions">
+            <div class="seg-group" id="sample-rate-filter" role="group" aria-label="Sample rate display">
+              <button type="button" class="seg-btn active" data-sr="both">44.1k + 48k</button>
+              <button type="button" class="seg-btn" data-sr="48000">48 kHz</button>
+              <button type="button" class="seg-btn" data-sr="44100">44.1 kHz</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sg-card table-card">
+          <div class="mobile-scroll-hint micro" aria-hidden="true">
+            ← SWIPE MATRIX FOR STRAIGHT, DOTTED &amp; TRIPLET →
+          </div>
+          <div class="delay-table-scroll">
+            <table class="delay-table" id="delay-matrix-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-note">Note</th>
+                  <th scope="col">Straight <span class="th-mult">(1×)</span></th>
+                  <th scope="col">Dotted <span class="th-mult">(× 1.5)</span></th>
+                  <th scope="col">Triplet <span class="th-mult">(× 2/3)</span></th>
+                </tr>
+              </thead>
+              <tbody id="delay-matrix-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 002: REVERB PRE-DELAY & DECAY ENGINE ================= -->
+      <section id="section-reverb" class="tool-section" aria-labelledby="reverb-heading">
+        <div class="section-bar">
+          <div>
+            <span class="micro">002 / REVERB PRE-DELAY &amp; DECAY (RT60)</span>
+            <h2 id="reverb-heading" class="section-title">Tempo-Synced Reverb Architecture</h2>
+            <p class="section-sub">
+              Every preset enforces <strong>Pre-Delay + Decay = Exact Musical Length</strong> so tails breathe cleanly
+              and clear right on the next beat or bar boundary without muddying the mix.
+            </p>
+          </div>
+        </div>
+
+        <!-- Visual Reverb Envelope Diagram Card -->
+        <div class="sg-card envelope-card">
+          <div class="envelope-head">
+            <div>
+              <span class="micro" id="envelope-kicker">LIVE ENVELOPE DIAGRAM · PRESET</span>
+              <h3 class="envelope-title" id="envelope-title">Vocal Plate — 1 Bar (4 Beats)</h3>
+            </div>
+
+            <div class="envelope-actions">
+              <span class="sg-stamp-badge micro" id="envelope-verify-badge">PRE + DECAY = EXACT 1 BAR</span>
+              <button type="button" id="btn-audition-envelope" class="sg-btn sg-btn-ink sg-btn-sm">
+                ▶ Audition Reverb
+              </button>
+              <button type="button" id="btn-copy-envelope" class="sg-btn sg-btn-outline sg-btn-sm">
+                Copy Pair
+              </button>
+            </div>
+          </div>
+
+          <div class="envelope-canvas-wrap">
+            <canvas
+              id="reverb-envelope-canvas"
+              width="960"
+              height="228"
+              role="img"
+              aria-label="Visual reverb envelope diagram showing dry transient hit, pre-delay silence gap, and exponential decay tail against musical beat markers"
+            ></canvas>
+          </div>
+
+          <div class="envelope-metrics-strip" id="envelope-metrics-strip">
+            <button type="button" class="env-metric-btn" id="env-copy-predelay" title="Click to copy Pre-Delay ms">
+              <span class="micro env-metric-label">PRE-DELAY GAP</span>
+              <strong class="env-metric-val" id="env-val-predelay">62.50 ms</strong>
+              <span class="micro env-metric-sub" id="env-sub-predelay">1/32 NOTE · CLICK TO COPY</span>
+            </button>
+
+            <button type="button" class="env-metric-btn" id="env-copy-decay" title="Click to copy Decay RT60 ms">
+              <span class="micro env-metric-label">DECAY TIME (RT60)</span>
+              <strong class="env-metric-val" id="env-val-decay">1937.50 ms</strong>
+              <span class="micro env-metric-sub" id="env-sub-decay">1.938 s · CLICK TO COPY</span>
+            </button>
+
+            <button type="button" class="env-metric-btn" id="env-copy-total" title="Click to copy Total Tail ms">
+              <span class="micro env-metric-label">TOTAL RESOLUTION TAIL</span>
+              <strong class="env-metric-val" id="env-val-total">2000.00 ms</strong>
+              <span class="micro env-metric-sub" id="env-sub-total">2.000 s · 1 BAR (4 BEATS)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 6 Studio-Calibrated Tempo-Synced Reverb Presets -->
+        <div class="subsection-head">
+          <span class="micro">STUDIO PRESETS · CLICK A CARD TO INSPECT OR ▶ TO AUDITION</span>
+        </div>
+        <div class="reverb-presets-grid" id="reverb-presets-grid"></div>
+
+        <!-- Custom Reverb Builder -->
+        <div class="sg-card custom-reverb-card" id="custom-reverb-card">
+          <div class="custom-reverb-head">
+            <div>
+              <span class="micro">CUSTOM REVERB BUILDER</span>
+              <h3 class="custom-reverb-title">Build Your Own Tempo-Locked Reverb</h3>
+            </div>
+            <div class="custom-reverb-head-actions">
+              <button type="button" id="btn-inspect-custom" class="sg-btn sg-btn-outline sg-btn-sm">
+                Show on Diagram
+              </button>
+              <button type="button" id="btn-audition-custom" class="sg-btn sg-btn-ink sg-btn-sm">
+                ▶ Audition Custom
+              </button>
+            </div>
+          </div>
+
+          <div class="custom-controls-grid">
+            <div class="setting-block">
+              <label class="setting-label micro" for="custom-predelay-note">Pre-Delay Note</label>
+              <select id="custom-predelay-note" class="sg-select">
+                <option value="0">None (0 ms)</option>
+                <option value="128">1/128 Note</option>
+                <option value="64">1/64 Note</option>
+                <option value="32" selected>1/32 Note</option>
+                <option value="16">1/16 Note</option>
+                <option value="8">1/8 Note</option>
+              </select>
+            </div>
+
+            <div class="setting-block">
+              <span class="setting-label micro">Pre-Delay Variation</span>
+              <div class="seg-group" id="custom-predelay-variation" role="group" aria-label="Custom pre-delay note variation">
+                <button type="button" class="seg-btn active" data-var="straight">Straight</button>
+                <button type="button" class="seg-btn" data-var="dotted">Dotted</button>
+                <button type="button" class="seg-btn" data-var="triplet">Triplet</button>
+              </div>
+            </div>
+
+            <div class="setting-block">
+              <label class="setting-label micro" for="custom-total-beats">Target Reverb Total</label>
+              <select id="custom-total-beats" class="sg-select">
+                <option value="0.5">1/2 Beat (1/8 Note)</option>
+                <option value="1">1 Beat (1/4 Note)</option>
+                <option value="2">2 Beats (1/2 Bar)</option>
+                <option value="4" selected>1 Bar (4 Beats)</option>
+                <option value="8">2 Bars (8 Beats)</option>
+                <option value="16">4 Bars (16 Beats)</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="custom-reverb-warning" class="notice-banner custom-warning hidden" role="alert">
+            <strong>Pre-Delay Exceeds Target Reverb Total</strong>
+            <p id="custom-reverb-warning-text"></p>
+          </div>
+
+          <div class="custom-readout-grid" id="custom-readout-grid">
+            <button type="button" class="custom-stat-btn" id="custom-copy-predelay" title="Click to copy custom Pre-Delay ms">
+              <span class="micro">PRE-DELAY</span>
+              <strong id="custom-out-predelay">62.50 ms</strong>
+              <span class="micro custom-stat-sub" id="custom-out-predelay-sub">1/32 · 3,000 smp @ 48k</span>
+            </button>
+
+            <button type="button" class="custom-stat-btn" id="custom-copy-decay" title="Click to copy custom Decay ms">
+              <span class="micro">DECAY TIME (RT60)</span>
+              <strong id="custom-out-decay">1937.50 ms</strong>
+              <span class="micro custom-stat-sub" id="custom-out-decay-sub">1.938 s</span>
+            </button>
+
+            <button type="button" class="custom-stat-btn" id="custom-copy-total" title="Click to copy custom Total Tail ms">
+              <span class="micro">TOTAL TAIL</span>
+              <strong id="custom-out-total">2000.00 ms</strong>
+              <span class="micro custom-stat-sub" id="custom-out-total-sub">2.000 s · 1 Bar (4 Beats)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 003: DYNAMICS, SIDECHAIN & GROOVE ================= -->
+      <section id="section-groove" class="tool-section" aria-labelledby="groove-heading">
+        <div class="section-bar">
+          <div>
+            <span class="micro">003 / DYNAMICS, SIDECHAIN &amp; GROOVE</span>
+            <h2 id="groove-heading" class="section-title">Compressor Timing &amp; Swing Offsets</h2>
+            <p class="section-sub">
+              Tempo-locked attack &amp; release anchors for punchy drums, pumping sidechains, and MPC-style groove delay offsets.
+            </p>
+          </div>
+        </div>
+
+        <div class="groove-grid">
+          <!-- Left: Compressor Attack & Sidechain Release -->
+          <div class="sg-card groove-card">
+            <div class="groove-card-head">
+              <span class="micro">COMPRESSOR &amp; SIDECHAIN TIMINGS</span>
+              <h3 class="groove-card-title">Attack &amp; Release Anchors</h3>
+            </div>
+            <div class="dynamics-list" id="dynamics-list"></div>
+          </div>
+
+          <!-- Right: Swing / Humanize Offsets -->
+          <div class="sg-card groove-card">
+            <div class="groove-card-head">
+              <span class="micro">SWING / HUMANIZE DELAY</span>
+              <h3 class="groove-card-title">Off-Beat Groove Offsets</h3>
+            </div>
+            <p class="groove-intro">
+              Delay every second 16th note (or 8th note in half-time) by the exact millisecond offset below to dial pocketed swing manually on any synth, sample delay, or hi-hat track.
+            </p>
+            <div class="swing-table-wrap">
+              <table class="swing-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Feel</th>
+                    <th scope="col">16th Offset</th>
+                    <th scope="col">8th Half-Time</th>
+                  </tr>
+                </thead>
+                <tbody id="swing-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 004: EXPORT STUDIO CHEAT SHEET ================= -->
+      <section class="tool-section" aria-labelledby="export-heading">
+        <div class="sg-card export-sheet-card">
+          <div class="export-copy">
+            <span class="micro">004 / SESSION NOTES &amp; EXPORT</span>
+            <h2 id="export-heading" class="export-title">Export Studio Timing Sheet</h2>
+            <p class="export-sub">
+              Download or copy a formatted Markdown cheat sheet of every delay subdivision, LFO Hz rate, reverb
+              pre-delay/decay preset, compressor release, and swing offset at <strong id="export-bpm-label">120 BPM</strong> — ready to drop straight into Logic Pro, Ableton, or Pro Tools project notes.
+            </p>
+          </div>
+
+          <div class="export-actions">
+            <button type="button" id="btn-copy-sheet" class="sg-btn sg-btn-outline">
+              Copy Full Sheet
+            </button>
+            <button type="button" id="btn-export-md" class="paper-button">
+              <span>Export Timing Sheet (.md)</span>
+              <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Saint Gordon Collective Footer -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">Saint Gordon Collective</div>
+        <div class="footer-nav">
+          <a href="https://saintgordon.vercel.app" target="_blank" rel="noopener noreferrer">
+            Saint Gordon Home ↗
+          </a>
+          <a href="https://saintgordon.vercel.app/collection.html" target="_blank" rel="noopener noreferrer">
+            The Collection ↗
+          </a>
+          <a href="https://github.com/Firewallaby/reverb-delay-counter" target="_blank" rel="noopener noreferrer">
+            Reverb &amp; Delay Counter on GitHub ↗
+          </a>
+        </div>
+        <div class="footer-meta micro">
+          <span>© <span id="footer-year">2026</span> SAINT GORDON COLLECTIVE</span>
+          <span>TOOL / 006 · INDEPENDENT SOUND. IMPERFECT BY DESIGN.</span>
+          <span>100% CLIENT-SIDE WEB AUDIO</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Global Toast Notifications -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <script type="module" src="js/app.js?v=20261124-1"></script>
+  </body>
+</html>
