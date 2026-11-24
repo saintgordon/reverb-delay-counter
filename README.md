@@ -2,7 +2,7 @@
 
 > **Saint Gordon Collective** — 100% client-side studio tempo calculator for delay times, LFO modulation Hz, sample-accurate counts, tempo-synced reverb pre-delay & RT60 decay architecture, sidechain dynamics, swing groove offsets, tap tempo, and real-time Web Audio auditioning.
 
-**Live App:** https://firewallaby.github.io/reverb-delay-counter/  
+**Live App:** https://saintgordon.github.io/reverb-delay-counter/  
 **Collective:** https://saintgordon.vercel.app
 
 ---
