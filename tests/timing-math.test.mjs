@@ -5,13 +5,17 @@ import {
   MIN_BPM,
   MAX_BPM,
   DEFAULT_BPM,
+  REVERB_PRE_DELAY_OPTIONS,
   clampBpm,
   parseBpmInput,
   formatBpm,
   formatMs,
   formatSec,
+  formatSecShort,
   formatHz,
+  formatReverbDisplay,
   calculateTempoSummary,
+  calculateQuickDelays,
   calculateDelayCell,
   calculateDelayMatrix,
   calculateReverbTiming,
@@ -51,7 +55,20 @@ describe('BPM clamping, parsing, and formatting', () => {
   });
 });
 
-describe('Delay Time & LFO Matrix at 120 BPM', () => {
+describe('Delay Time, Quick Vocal Delays & LFO Matrix at 120 BPM', () => {
+  it('computes the 4 featured Quick Vocal Delays at 120 BPM', () => {
+    const quick = calculateQuickDelays(120);
+    assert.equal(quick.length, 4);
+    assert.deepEqual(
+      quick.map((q) => q.name),
+      ['Slapback 1/16', '1/8 Throw', '1/8 Dotted', '1/4 Echo']
+    );
+    assert.equal(formatMs(quick[0].ms), '125.00');
+    assert.equal(formatMs(quick[1].ms), '250.00');
+    assert.equal(formatMs(quick[2].ms), '375.00');
+    assert.equal(formatMs(quick[3].ms), '500.00');
+  });
+
   it('computes exact 120 BPM textbook values', () => {
     const qStraight = calculateDelayCell(120, 4, 'straight');
     assert.equal(formatMs(qStraight.ms), '500.00');
@@ -124,11 +141,11 @@ describe('Decimal BPM accuracy (128.5 BPM & 92.4 BPM)', () => {
 });
 
 describe('Reverb Pre-Delay & Decay (RT60) Engine', () => {
-  it('enforces Pre-Delay + Decay === Total Musical Length across all 6 presets and BPMs', () => {
-    const testBpms = [20, 75, 92.4, 120, 128.5, 140, 300];
+  it('enforces Pre-Delay + Decay === Total Musical Length across all 7 presets and BPMs 20–300', () => {
+    const testBpms = [20, 60, 75, 92.4, 120, 128.5, 140, 174, 240, 300];
     for (const bpm of testBpms) {
       const presets = calculateReverbPresets(bpm);
-      assert.equal(presets.length, 6);
+      assert.equal(presets.length, 7);
 
       for (const preset of presets) {
         assert.equal(preset.valid, true, `${preset.name} should be valid at ${bpm} BPM`);
@@ -142,21 +159,94 @@ describe('Reverb Pre-Delay & Decay (RT60) Engine', () => {
     }
   });
 
-  it('computes exact 120 BPM Vocal Plate and Slapback Echo values', () => {
+  it('matches exact reverbcalculator.com values at 120 BPM for Hall, Big Room, Small Room, and Tight Ambience', () => {
     const presets = calculateReverbPresets(120);
-    const vocalPlate = presets.find((p) => p.id === 'vocal-plate');
-    assert.equal(formatMs(vocalPlate.preDelayMs), '62.50');
-    assert.equal(formatMs(vocalPlate.decayMs), '1937.50');
-    assert.equal(formatSec(vocalPlate.decayMs), '1.938');
-    assert.equal(formatMs(vocalPlate.totalMs), '2000.00');
+    assert.deepEqual(
+      presets.map((p) => p.name),
+      ['Hall', 'Big Room', 'Small Room', 'Tight Ambience', 'Vocal Plate', 'Cathedral / Wide', 'Slapback Vocal']
+    );
 
-    const slapback = presets.find((p) => p.id === 'slapback-echo');
-    assert.equal(formatMs(slapback.preDelayMs), '62.50');
-    assert.equal(formatMs(slapback.decayMs), '187.50');
-    assert.equal(formatMs(slapback.totalMs), '250.00');
+    const byId = Object.fromEntries(presets.map((p) => [p.id, p]));
+
+    // 1. Hall (2 Bars, 1/32 PD)
+    assert.equal(formatMs(byId.hall.preDelayMs), '62.50');
+    assert.equal(formatMs(byId.hall.decayMs), '3937.50');
+    assert.equal(formatSecShort(byId.hall.decayMs), '3.94');
+    assert.equal(formatMs(byId.hall.totalMs), '4000.00');
+    assert.equal(formatSecShort(byId.hall.totalMs), '4.00');
+
+    // 2. Big Room (1 Bar, 1/64 PD)
+    assert.equal(formatMs(byId['big-room'].preDelayMs), '31.25');
+    assert.equal(formatMs(byId['big-room'].decayMs), '1968.75');
+    assert.equal(formatSecShort(byId['big-room'].decayMs), '1.97');
+    assert.equal(formatMs(byId['big-room'].totalMs), '2000.00');
+    assert.equal(formatSecShort(byId['big-room'].totalMs), '2.00');
+
+    // 3. Small Room (1/2 Bar, 1/128 PD)
+    assert.equal(formatMs(byId['small-room'].preDelayMs), '15.63');
+    assert.equal(formatMs(byId['small-room'].decayMs), '984.38');
+    assert.equal(formatSecShort(byId['small-room'].decayMs), '0.98');
+    assert.equal(formatMs(byId['small-room'].totalMs), '1000.00');
+    assert.equal(formatSecShort(byId['small-room'].totalMs), '1.00');
+
+    // 4. Tight Ambience (1 Beat, 1/512 PD)
+    assert.equal(formatMs(byId['tight-ambience'].preDelayMs), '3.91');
+    assert.equal(formatMs(byId['tight-ambience'].decayMs), '496.09');
+    assert.equal(formatSecShort(byId['tight-ambience'].decayMs), '0.50');
+    assert.equal(formatMs(byId['tight-ambience'].totalMs), '500.00');
+    assert.equal(formatSecShort(byId['tight-ambience'].totalMs), '0.50');
+
+    // 5. Vocal Plate (1 Bar, 1/32 PD)
+    assert.equal(formatMs(byId['vocal-plate'].preDelayMs), '62.50');
+    assert.equal(formatMs(byId['vocal-plate'].decayMs), '1937.50');
+    assert.equal(formatSecShort(byId['vocal-plate'].decayMs), '1.94');
+    assert.equal(formatMs(byId['vocal-plate'].totalMs), '2000.00');
+
+    // 6. Cathedral / Wide (4 Bars, 1/16 PD)
+    assert.equal(formatMs(byId['cathedral-wide'].preDelayMs), '125.00');
+    assert.equal(formatMs(byId['cathedral-wide'].decayMs), '7875.00');
+    assert.equal(formatSecShort(byId['cathedral-wide'].decayMs), '7.88');
+    assert.equal(formatMs(byId['cathedral-wide'].totalMs), '8000.00');
+
+    // 7. Slapback Vocal (1/2 Beat, 1/32 PD)
+    assert.equal(formatMs(byId['slapback-vocal'].preDelayMs), '62.50');
+    assert.equal(formatMs(byId['slapback-vocal'].decayMs), '187.50');
+    assert.equal(formatSecShort(byId['slapback-vocal'].decayMs), '0.19');
+    assert.equal(formatMs(byId['slapback-vocal'].totalMs), '250.00');
   });
 
-  it('supports Custom Reverb Builder including None pre-delay and overlap warning', () => {
+  it('formats reverb display cleanly across plugin, ms, and sec modes', () => {
+    const pluginPd = formatReverbDisplay(62.5, 'plugin', 'predelay');
+    assert.equal(pluginPd.primary, '62.50 ms');
+    assert.equal(pluginPd.copyValue, '62.50');
+
+    const pluginDecay = formatReverbDisplay(3937.5, 'plugin', 'decay');
+    assert.equal(pluginDecay.primary, '3.94 s');
+    assert.equal(pluginDecay.secondary, '3937.50 ms');
+    assert.equal(pluginDecay.copyValue, '3.94');
+
+    const allMsDecay = formatReverbDisplay(3937.5, 'ms', 'decay');
+    assert.equal(allMsDecay.primary, '3937.50 ms');
+    assert.equal(allMsDecay.secondary, '3.94 s');
+    assert.equal(allMsDecay.copyValue, '3937.50');
+
+    const allSecPd = formatReverbDisplay(3.90625, 'sec', 'predelay');
+    assert.equal(allSecPd.primary, '0.004 s');
+    assert.equal(allSecPd.secondary, '3.91 ms');
+  });
+
+  it('supports Custom Reverb Builder including 1/512, None pre-delay, and overlap warning', () => {
+    assert.ok(REVERB_PRE_DELAY_OPTIONS.some((o) => o.denom === 512));
+
+    const custom512 = calculateReverbTiming(120, {
+      preDelayDenom: 512,
+      preDelayVariation: 'straight',
+      totalBeats: 1,
+    });
+    assert.equal(custom512.valid, true);
+    assert.equal(formatMs(custom512.preDelayMs), '3.91');
+    assert.equal(formatMs(custom512.decayMs), '496.09');
+
     // None pre-delay -> full total goes to decay
     const noPre = calculateReverbTiming(120, {
       preDelayDenom: 0,
@@ -219,7 +309,6 @@ describe('Dynamics, Sidechain & Swing Groove Bonus Math', () => {
     assert.equal(formatMs(swing[2].offset16thMs), '30.00'); // 62%
     assert.equal(formatMs(swing[3].offset16thMs), '41.67'); // 66.7% triplet
 
-    // 8th-note half-time swing is exactly 2x 16th-note offset
     for (const sw of swing) {
       assert.ok(Math.abs(sw.offset8thMs - sw.offset16thMs * 2) < 1e-9);
     }
@@ -247,16 +336,14 @@ describe('Tap Tempo Engine', () => {
   it('auto-resets tap history after an idle pause > 2.5 seconds', () => {
     const engine = new TapTempoEngine({ resetTimeoutMs: 2500 });
     engine.tap(1000);
-    engine.tap(1500); // 120 BPM
+    engine.tap(1500);
     engine.tap(2000);
 
-    // Pause for 2600 ms (> 2500 ms threshold)
     const afterPause = engine.tap(4600);
     assert.equal(afterPause.wasReset, true);
     assert.equal(afterPause.tapCount, 1);
     assert.equal(afterPause.bpm, null);
 
-    // New tempo: 100 BPM (600 ms interval)
     const next = engine.tap(5200);
     assert.equal(next.bpm, 100);
     assert.equal(next.tapCount, 2);
@@ -264,11 +351,10 @@ describe('Tap Tempo Engine', () => {
 
   it('rejects outlier spikes > 1.8x median interval', () => {
     const engine = new TapTempoEngine({ outlierMultiplier: 1.8 });
-    // Taps with intervals: 500, 500, 1200 (missed beat spike > 900ms), 500
     engine.tap(0);
     engine.tap(500);
     engine.tap(1000);
-    engine.tap(2200); // 1200 ms spike (< 2500 ms reset, > 1.8 * 500 = 900 ms)
+    engine.tap(2200);
     const res = engine.tap(2700);
 
     assert.equal(res.droppedOutliers, 1);
@@ -280,12 +366,10 @@ describe('Tap Tempo Engine', () => {
   it('maintains a rolling window of the last 8 taps', () => {
     const engine = new TapTempoEngine({ maxTaps: 8 });
     let t = 0;
-    // 4 taps at 100 BPM (600 ms)
     for (let i = 0; i < 4; i += 1) {
       engine.tap(t);
       t += 600;
     }
-    // 8 consecutive taps at 150 BPM (400 ms) should completely flush the 100 BPM taps
     let last;
     for (let i = 0; i < 8; i += 1) {
       last = engine.tap(t);
@@ -298,13 +382,13 @@ describe('Tap Tempo Engine', () => {
   it('clamps extreme tap speeds cleanly to MAX_BPM', () => {
     const engine = new TapTempoEngine();
     engine.tap(1000);
-    const res = engine.tap(1100); // 100 ms = 600 BPM raw
+    const res = engine.tap(1100);
     assert.equal(res.bpm, MAX_BPM);
   });
 });
 
 describe('Markdown Timing Sheet Export', () => {
-  it('generates a complete Markdown sheet with Delay, Reverb, Dynamics, and Swing sections', () => {
+  it('generates a complete Markdown sheet with all 7 Reverb presets, Delay, Dynamics, and Swing sections', () => {
     const custom = calculateReverbTiming(128.5, {
       preDelayDenom: 32,
       preDelayVariation: 'straight',
@@ -313,10 +397,16 @@ describe('Markdown Timing Sheet Export', () => {
     const md = generateMarkdownSheet(128.5, custom);
 
     assert.ok(md.includes('# Studio Timing Sheet — 128.5 BPM'));
-    assert.ok(md.includes('## Delay Time & LFO Matrix'));
     assert.ok(md.includes('## Reverb Pre-Delay & Decay (RT60)'));
+    assert.ok(md.includes('**Hall**'));
+    assert.ok(md.includes('**Big Room**'));
+    assert.ok(md.includes('**Small Room**'));
+    assert.ok(md.includes('**Tight Ambience**'));
     assert.ok(md.includes('**Vocal Plate**'));
+    assert.ok(md.includes('**Cathedral / Wide**'));
+    assert.ok(md.includes('**Slapback Vocal**'));
     assert.ok(md.includes('**Custom Reverb**'));
+    assert.ok(md.includes('## Delay Time & LFO Matrix'));
     assert.ok(md.includes('## Dynamics & Sidechain Timings'));
     assert.ok(md.includes('## Groove & Swing Delay Offsets'));
   });

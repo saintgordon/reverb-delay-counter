@@ -11,7 +11,7 @@ export class ReverbEnvelopeRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.timing = null;
-    this.title = 'Vocal Plate';
+    this.title = 'Hall';
 
     // Playhead animation state
     this.playheadActive = false;
@@ -99,6 +99,7 @@ export class ReverbEnvelopeRenderer {
     const w = cssWidth;
     const h = cssHeight;
     const isNarrow = w < 460;
+    const isCompact = w < 620;
 
     // Layout padding
     const padLeft = isNarrow ? 34 : 46;
@@ -321,12 +322,14 @@ export class ReverbEnvelopeRenderer {
       : 'PRE-DELAY 0.00 ms';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'left';
-    ctx.fillText(isNarrow ? preText : `DRY HIT -> ${preText}`, padLeft + 6, 16);
+    ctx.fillText(isCompact ? preText : `DRY HIT -> ${preText}`, padLeft + 6, 16);
 
     // Right tag: DECAY + TOTAL resolution
     const decayText = isNarrow
-      ? `DECAY ${formatSec(timing.decayMs)}s`
-      : `DECAY ${formatSec(timing.decayMs)} s (${formatMs(timing.decayMs)} ms) · TOTAL ${formatSec(totalMs)} s`;
+      ? `DECAY ${(timing.decayMs / 1000).toFixed(2)}s`
+      : isCompact
+        ? `DECAY ${(timing.decayMs / 1000).toFixed(2)}s · TOTAL ${(totalMs / 1000).toFixed(2)}s`
+        : `DECAY ${formatSec(timing.decayMs)} s (${formatMs(timing.decayMs)} ms) · TOTAL ${formatSec(totalMs)} s`;
     ctx.fillStyle = '#cccccc';
     ctx.textAlign = 'right';
     ctx.fillText(decayText, padLeft + plotW, 16);

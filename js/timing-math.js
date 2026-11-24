@@ -30,90 +30,103 @@ export const VARIATIONS = Object.freeze({
 });
 
 export const GENRE_TEMPO_PRESETS = Object.freeze([
-  { bpm: 75, label: 'Slow / Ballad' },
+  { bpm: 75, label: 'Slow' },
   { bpm: 90, label: 'Boom-Bap' },
   { bpm: 120, label: 'House' },
-  { bpm: 140, label: 'Trap / Half-Time' },
-  { bpm: 160, label: 'Fast / DnB' },
+  { bpm: 140, label: 'Trap' },
+  { bpm: 160, label: 'Fast' },
 ]);
 
 export const REVERB_PRESET_DEFS = Object.freeze([
   {
-    id: 'tight-room',
-    name: 'Tight Room',
-    tag: 'INTIMATE / DRY DRUMS',
+    id: 'hall',
+    name: 'Hall',
+    tag: '2 BARS · CHORUS / SUSTAIN',
+    totalBeats: 8,
+    totalLabel: '2 Bars · 8 Beats',
+    preDelayDenom: 32,
+    preDelayVariation: 'straight',
+    preDelayLabel: '1/32',
+    description: 'Lush 2-bar concert hall wash that lifts vocals cleanly and clears on the next phrase.',
+    auditionColor: 'large-hall',
+  },
+  {
+    id: 'big-room',
+    name: 'Big Room',
+    tag: '1 BAR · DRUMS / ENSEMBLE',
+    totalBeats: 4,
+    totalLabel: '1 Bar · 4 Beats',
+    preDelayDenom: 64,
+    preDelayVariation: 'straight',
+    preDelayLabel: '1/64',
+    description: 'Full studio live-room bloom for snares, acoustic guitars, and cohesive ensemble glue.',
+    auditionColor: 'small-hall',
+  },
+  {
+    id: 'small-room',
+    name: 'Small Room',
+    tag: '1/2 BAR · VERSES / INTIMATE',
     totalBeats: 2,
-    totalLabel: '1/2 Bar (2 Beats)',
+    totalLabel: '1/2 Bar · 2 Beats',
     preDelayDenom: 128,
     preDelayVariation: 'straight',
     preDelayLabel: '1/128',
-    description: 'Immediate room cohesion for dry drums, rap verses, and tight vocal pockets.',
+    description: 'Immediate studio chamber depth for rap verses, dry drums, and upfront vocal pockets.',
+    auditionColor: 'room',
+  },
+  {
+    id: 'tight-ambience',
+    name: 'Tight Ambience',
+    tag: '1 BEAT · DRY GLUE / PERC',
+    totalBeats: 1,
+    totalLabel: '1 Beat · 1/4 Note',
+    preDelayDenom: 512,
+    preDelayVariation: 'straight',
+    preDelayLabel: '1/512',
+    description: 'Ultra-short early reflection space that puts dry tracks in a room without audible tail.',
     auditionColor: 'room',
   },
   {
     id: 'vocal-plate',
     name: 'Vocal Plate',
-    tag: 'LEAD VOCAL / DARK POP',
+    tag: '1 BAR · LEAD VOCAL / POP',
     totalBeats: 4,
-    totalLabel: '1 Bar (4 Beats)',
+    totalLabel: '1 Bar · 4 Beats',
     preDelayDenom: 32,
     preDelayVariation: 'straight',
     preDelayLabel: '1/32',
-    description: 'Crisp upfront consonant separation before a dense 1-bar vocal plate bloom.',
+    description: 'Crisp upfront consonant separation before a dense 1-bar dark-pop vocal plate bloom.',
     auditionColor: 'plate',
   },
   {
-    id: 'small-hall',
-    name: 'Small Hall',
-    tag: 'ENSEMBLE / WARMTH',
-    totalBeats: 4,
-    totalLabel: '1 Bar (4 Beats)',
-    preDelayDenom: 64,
-    preDelayVariation: 'straight',
-    preDelayLabel: '1/64',
-    description: 'Balanced studio chamber depth for backing vocals, guitars, and warm acoustic glue.',
-    auditionColor: 'small-hall',
-  },
-  {
-    id: 'large-hall',
-    name: 'Large Hall / Ballad',
-    tag: 'CHORUS / SUSTAIN',
-    totalBeats: 8,
-    totalLabel: '2 Bars (8 Beats)',
-    preDelayDenom: 32,
-    preDelayVariation: 'straight',
-    preDelayLabel: '1/32',
-    description: 'Lush 2-bar tail with clean pre-delay lift that clears right on the next phrase.',
-    auditionColor: 'large-hall',
-  },
-  {
-    id: 'wide-cathedral',
-    name: 'Wide Cathedral / Ambient',
-    tag: 'ATMOSPHERE / PADS',
+    id: 'cathedral-wide',
+    name: 'Cathedral / Wide',
+    tag: '4 BARS · AMBIENT / PADS',
     totalBeats: 16,
-    totalLabel: '4 Bars (16 Beats)',
+    totalLabel: '4 Bars · 16 Beats',
     preDelayDenom: 16,
     preDelayVariation: 'straight',
     preDelayLabel: '1/16',
-    description: 'Expansive 4-bar architectural wash for pads, dark-pop swells, and sparse hooks.',
+    description: 'Huge 4-bar architectural wash for ambient swells, sparse hooks, and cinematic pads.',
     auditionColor: 'cathedral',
   },
   {
-    id: 'slapback-echo',
-    name: 'Slapback Vocal Echo',
-    tag: 'TAPE SLAP / PRESENCE',
+    id: 'slapback-vocal',
+    name: 'Slapback Vocal',
+    tag: '1/2 BEAT · TAPE SLAP ECHO',
     totalBeats: 0.5,
-    totalLabel: '1/8 Note (0.5 Beat)',
+    totalLabel: '1/2 Beat · 1/8 Note',
     preDelayDenom: 32,
     preDelayVariation: 'straight',
     preDelayLabel: '1/32',
-    description: 'Classic vocal slap gap with a short, controlled 1/8-note chamber tail for thickness.',
+    description: 'Classic tight vocal slap gap with a controlled 1/8-note chamber tail for thickness.',
     auditionColor: 'slapback',
   },
 ]);
 
 export const REVERB_PRE_DELAY_OPTIONS = Object.freeze([
   { value: '0', denom: 0, label: 'None (0 ms)' },
+  { value: '512', denom: 512, label: '1/512' },
   { value: '128', denom: 128, label: '1/128' },
   { value: '64', denom: 64, label: '1/64' },
   { value: '32', denom: 32, label: '1/32' },
@@ -128,6 +141,37 @@ export const REVERB_TOTAL_OPTIONS = Object.freeze([
   { value: '4', beats: 4, label: '1 Bar (4 Beats)' },
   { value: '8', beats: 8, label: '2 Bars (8 Beats)' },
   { value: '16', beats: 16, label: '4 Bars (16 Beats)' },
+]);
+
+export const QUICK_DELAY_DEFS = Object.freeze([
+  {
+    id: 'slapback-16',
+    name: 'Slapback 1/16',
+    tag: 'VOCAL THICKNESS',
+    denom: 16,
+    variation: 'straight',
+  },
+  {
+    id: 'eighth-throw',
+    name: '1/8 Throw',
+    tag: 'POCKETED PHRASE TAIL',
+    denom: 8,
+    variation: 'straight',
+  },
+  {
+    id: 'eighth-dotted',
+    name: '1/8 Dotted',
+    tag: 'SYNCOPATED POP BOUNCE',
+    denom: 8,
+    variation: 'dotted',
+  },
+  {
+    id: 'quarter-echo',
+    name: '1/4 Echo',
+    tag: 'CLASSIC BEAT REPEAT',
+    denom: 4,
+    variation: 'straight',
+  },
 ]);
 
 export const SWING_LEVELS = Object.freeze([
@@ -170,7 +214,6 @@ export function formatBpm(bpm) {
   if (Number.isInteger(safe)) {
     return String(safe);
   }
-  // Remove trailing zero after 2nd decimal place while preserving 1st decimal if non-zero
   return safe.toFixed(2).replace(/0$/, '').replace(/\.0$/, '');
 }
 
@@ -184,6 +227,14 @@ export function formatSec(ms) {
   return (ms / 1000).toFixed(3);
 }
 
+export function formatSecShort(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '0.00';
+  if (ms < 100) {
+    return (ms / 1000).toFixed(3);
+  }
+  return (ms / 1000).toFixed(2);
+}
+
 export function formatHz(hz) {
   if (!Number.isFinite(hz) || hz <= 0) return '0.00';
   if (hz >= 100) return hz.toFixed(1);
@@ -194,6 +245,36 @@ export function formatHz(hz) {
 export function formatSamples(samples) {
   if (!Number.isFinite(samples)) return '0';
   return Math.round(samples).toLocaleString('en-US');
+}
+
+/**
+ * Format a reverb timing value according to the active unit display mode:
+ * - 'plugin' (default): Pre-Delay in ms (with s subtitle); Decay & Total in s (with ms subtitle)
+ * - 'ms': All values in ms (exact reverbcalculator.com style, with s subtitle)
+ * - 'sec': All values in s (with ms subtitle)
+ */
+export function formatReverbDisplay(ms, mode = 'plugin', role = 'decay') {
+  const safeMs = Number.isFinite(ms) ? Math.max(0, ms) : 0;
+  const msVal = formatMs(safeMs);
+  const secVal = formatSecShort(safeMs);
+
+  const showAsMs = mode === 'ms' || (mode === 'plugin' && role === 'predelay');
+
+  if (showAsMs) {
+    return {
+      primary: `${msVal} ms`,
+      secondary: `${secVal} s`,
+      copyValue: msVal,
+      unit: 'ms',
+    };
+  }
+
+  return {
+    primary: `${secVal} s`,
+    secondary: `${msVal} ms`,
+    copyValue: secVal,
+    unit: 's',
+  };
 }
 
 /**
@@ -259,6 +340,22 @@ export function calculateDelayCell(bpm, denom, variation = 'straight') {
     samples44100,
     samples48000,
   };
+}
+
+/**
+ * Calculate the 4 featured Quick Vocal Delay cards (Slapback 1/16, 1/8 Throw, 1/8 Dotted, 1/4 Echo).
+ */
+export function calculateQuickDelays(bpm) {
+  const safeBpm = clampBpm(bpm);
+  return QUICK_DELAY_DEFS.map((def) => {
+    const cell = calculateDelayCell(safeBpm, def.denom, def.variation);
+    return {
+      ...cell,
+      quickId: def.id,
+      name: def.name,
+      tag: def.tag,
+    };
+  });
 }
 
 /**
@@ -346,7 +443,7 @@ export function calculateReverbTiming(bpm, {
 }
 
 /**
- * Compute all 6 studio-calibrated Tempo-Synced Reverb Presets for a given BPM.
+ * Compute all 7 studio-calibrated Tempo-Synced Reverb Presets for a given BPM.
  */
 export function calculateReverbPresets(bpm) {
   const safeBpm = clampBpm(bpm);
@@ -409,7 +506,7 @@ export function calculateDynamicsTimings(bpm) {
     {
       id: 'dotted-sidechain',
       category: 'Sidechain',
-      name: 'Syncopated Dotted Sidechain',
+      name: 'Deep Groove Sidechain',
       subdivision: '1/8 Dotted',
       denom: 8,
       variation: 'dotted',
@@ -579,7 +676,6 @@ export class TapTempoEngine {
     const clampedBpm = clampBpm(rawBpm);
     const smoothedBpm = Math.round(clampedBpm * 10) / 10;
 
-    // Stability score (0–100) from coefficient of variation of kept intervals
     let stability = 55;
     let stabilityLabel = 'WARMING UP';
 
@@ -587,7 +683,6 @@ export class TapTempoEngine {
       const variance = kept.reduce((acc, v) => acc + ((v - meanInterval) ** 2), 0) / kept.length;
       const stdDev = Math.sqrt(variance);
       const cv = stdDev / meanInterval;
-      // cv = 0 -> 100%, cv >= 0.15 -> ~25%
       stability = Math.round(Math.max(0, Math.min(100, (1 - cv * 5) * 100)));
       if (this.taps.length < 4) {
         stabilityLabel = 'WARMING UP';
@@ -622,8 +717,8 @@ export function generateMarkdownSheet(bpm, customReverb = null) {
   const safeBpm = clampBpm(bpm);
   const bpmStr = formatBpm(safeBpm);
   const summary = calculateTempoSummary(safeBpm);
-  const delayMatrix = calculateDelayMatrix(safeBpm);
   const reverbPresets = calculateReverbPresets(safeBpm);
+  const delayMatrix = calculateDelayMatrix(safeBpm);
   const dynamics = calculateDynamicsTimings(safeBpm);
   const swing = calculateSwingOffsets(safeBpm);
 
@@ -637,33 +732,33 @@ export function generateMarkdownSheet(bpm, customReverb = null) {
     `- **1 Bar (4/4 Whole):** ${formatMs(summary.barMs)} ms (${formatSec(summary.barMs)} s)`,
     `- **Samples per Beat:** ${formatSamples(summary.beatSamples44100)} @ 44.1 kHz · ${formatSamples(summary.beatSamples48000)} @ 48 kHz`,
     '',
-    `## Delay Time & LFO Matrix`,
-    '| Note | Straight (ms / Hz) | Dotted 1.5× (ms / Hz) | Triplet 2/3× (ms / Hz) | Straight Samples (44.1k / 48k) |',
+    '## Reverb Pre-Delay & Decay (RT60)',
+    '| Reverb Size | Pre-Delay | Decay Time (RT60) | Total Reverb | Target Length |',
     '| :--- | :--- | :--- | :--- | :--- |',
   ];
 
-  for (const row of delayMatrix) {
-    lines.push(
-      `| **${row.label}** (${row.name}) | ${formatMs(row.straight.ms)} ms (${formatHz(row.straight.hz)} Hz) | ${formatMs(row.dotted.ms)} ms (${formatHz(row.dotted.hz)} Hz) | ${formatMs(row.triplet.ms)} ms (${formatHz(row.triplet.hz)} Hz) | ${formatSamples(row.straight.samples44100)} / ${formatSamples(row.straight.samples48000)} |`
-    );
-  }
-
-  lines.push(
-    '',
-    '## Reverb Pre-Delay & Decay (RT60)',
-    '| Preset | Pre-Delay | Decay (RT60) | Total Tail | Target Length |',
-    '| :--- | :--- | :--- | :--- | :--- |'
-  );
-
   for (const preset of reverbPresets) {
     lines.push(
-      `| **${preset.name}** | ${formatMs(preset.preDelayMs)} ms (${preset.preDelayLabel}) | ${formatMs(preset.decayMs)} ms (${formatSec(preset.decayMs)} s) | ${formatMs(preset.totalMs)} ms (${formatSec(preset.totalMs)} s) | ${preset.totalLabel} |`
+      `| **${preset.name}** | ${formatMs(preset.preDelayMs)} ms (${preset.preDelayLabel}) | ${formatSecShort(preset.decayMs)} s (${formatMs(preset.decayMs)} ms) | ${formatSecShort(preset.totalMs)} s (${formatMs(preset.totalMs)} ms) | ${preset.totalLabel} |`
     );
   }
 
   if (customReverb && customReverb.valid) {
     lines.push(
-      `| **Custom Reverb** | ${formatMs(customReverb.preDelayMs)} ms (${customReverb.preDelayNoteLabel}) | ${formatMs(customReverb.decayMs)} ms (${formatSec(customReverb.decayMs)} s) | ${formatMs(customReverb.totalMs)} ms (${formatSec(customReverb.totalMs)} s) | ${customReverb.totalLabel} |`
+      `| **Custom Reverb** | ${formatMs(customReverb.preDelayMs)} ms (${customReverb.preDelayNoteLabel}) | ${formatSecShort(customReverb.decayMs)} s (${formatMs(customReverb.decayMs)} ms) | ${formatSecShort(customReverb.totalMs)} s (${formatMs(customReverb.totalMs)} ms) | ${customReverb.totalLabel} |`
+    );
+  }
+
+  lines.push(
+    '',
+    `## Delay Time & LFO Matrix`,
+    '| Note | Straight (ms / Hz) | Dotted 1.5× (ms / Hz) | Triplet 2/3× (ms / Hz) | Straight Samples (44.1k / 48k) |',
+    '| :--- | :--- | :--- | :--- | :--- |'
+  );
+
+  for (const row of delayMatrix) {
+    lines.push(
+      `| **${row.label}** (${row.name}) | ${formatMs(row.straight.ms)} ms (${formatHz(row.straight.hz)} Hz) | ${formatMs(row.dotted.ms)} ms (${formatHz(row.dotted.hz)} Hz) | ${formatMs(row.triplet.ms)} ms (${formatHz(row.triplet.hz)} Hz) | ${formatSamples(row.straight.samples44100)} / ${formatSamples(row.straight.samples48000)} |`
     );
   }
 
@@ -692,7 +787,7 @@ export function generateMarkdownSheet(bpm, customReverb = null) {
   lines.push(
     '',
     '---',
-    '_Saint Gordon Collective · https://saintgordon.vercel.app_'
+    '_Saint Gordon Collective · https://saintgordon.github.io/reverb-delay-counter/_'
   );
 
   return lines.join('\n');

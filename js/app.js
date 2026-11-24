@@ -10,9 +10,12 @@ import {
   formatBpm,
   formatMs,
   formatSec,
+  formatSecShort,
   formatHz,
   formatSamples,
+  formatReverbDisplay,
   calculateTempoSummary,
+  calculateQuickDelays,
   calculateDelayMatrix,
   calculateReverbPresets,
   calculateReverbTiming,
@@ -28,8 +31,10 @@ const STORAGE_KEY = 'sg_reverb_delay_bpm_v1';
 
 const state = {
   bpm: DEFAULT_BPM,
+  activeTab: 'reverb', // 'reverb' | 'delay' | 'groove'
+  reverbUnitMode: 'plugin', // 'plugin' | 'ms' | 'sec'
   sampleRateView: 'both', // 'both' | '48000' | '44100'
-  selectedReverbSource: 'vocal-plate', // preset id or 'custom'
+  selectedReverbSource: 'hall', // preset id or 'custom'
   customPreDelayDenom: 32,
   customPreDelayVariation: 'straight',
   customTotalBeats: 4,
@@ -67,7 +72,6 @@ function cacheDom() {
   dom.btnTapTempo = document.getElementById('btn-tap-tempo');
   dom.tapPadLed = document.getElementById('tap-pad-led');
   dom.tapStabilityLabel = document.getElementById('tap-stability-label');
-  dom.tapCountMeta = document.getElementById('tap-count-meta');
 
   dom.btnMetronome = document.getElementById('btn-metronome');
   dom.metroGlyph = document.getElementById('metro-glyph');
@@ -84,20 +88,21 @@ function cacheDom() {
   dom.btnDetectDouble = document.getElementById('btn-detect-double');
   dom.btnDetectDismiss = document.getElementById('btn-detect-dismiss');
 
-  dom.summaryBeatBtn = document.getElementById('summary-beat-btn');
-  dom.summaryBeatMs = document.getElementById('summary-beat-ms');
-  dom.summaryBeatSec = document.getElementById('summary-beat-sec');
-  dom.summaryBarBtn = document.getElementById('summary-bar-btn');
-  dom.summaryBarMs = document.getElementById('summary-bar-ms');
-  dom.summaryBarSec = document.getElementById('summary-bar-sec');
-  dom.summaryHzBtn = document.getElementById('summary-hz-btn');
-  dom.summaryBeatHz = document.getElementById('summary-beat-hz');
-  dom.summarySamplesBtn = document.getElementById('summary-samples-btn');
-  dom.summaryBeat48k = document.getElementById('summary-beat-48k');
-  dom.summaryBeat44k = document.getElementById('summary-beat-44k');
+  // Navigation & Tabs
+  dom.navLinks = Array.from(document.querySelectorAll('.phase-step[data-nav]'));
+  dom.wsTabs = Array.from(document.querySelectorAll('.ws-tab[data-tab]'));
+  dom.tabPanels = {
+    reverb: document.getElementById('panel-reverb'),
+    delay: document.getElementById('panel-delay'),
+    groove: document.getElementById('panel-groove'),
+  };
+  dom.btnQuickBeatCopy = document.getElementById('btn-quick-beat-copy');
+  dom.quickBeatVal = document.getElementById('quick-beat-val');
+  dom.btnQuickExportMd = document.getElementById('btn-quick-export-md');
 
-  dom.sampleRateFilter = document.getElementById('sample-rate-filter');
-  dom.delayMatrixBody = document.getElementById('delay-matrix-body');
+  // Tab I: Reverb Table + Envelope + Custom Builder
+  dom.reverbUnitFilter = document.getElementById('reverb-unit-filter');
+  dom.reverbPresetsBody = document.getElementById('reverb-presets-body');
 
   dom.envelopeCanvas = document.getElementById('reverb-envelope-canvas');
   dom.envelopeKicker = document.getElementById('envelope-kicker');
@@ -114,8 +119,6 @@ function cacheDom() {
   dom.envCopyTotal = document.getElementById('env-copy-total');
   dom.envValTotal = document.getElementById('env-val-total');
   dom.envSubTotal = document.getElementById('env-sub-total');
-
-  dom.reverbPresetsGrid = document.getElementById('reverb-presets-grid');
 
   dom.customPreDelayNote = document.getElementById('custom-predelay-note');
   dom.customPreDelayVarGroup = document.getElementById('custom-predelay-variation');
@@ -134,14 +137,18 @@ function cacheDom() {
   dom.customOutTotal = document.getElementById('custom-out-total');
   dom.customOutTotalSub = document.getElementById('custom-out-total-sub');
 
+  // Tab II: Delay
+  dom.quickDelaysGrid = document.getElementById('quick-delays-grid');
+  dom.sampleRateFilter = document.getElementById('sample-rate-filter');
+  dom.delayMatrixBody = document.getElementById('delay-matrix-body');
+
+  // Tab III: Groove & Export
   dom.dynamicsList = document.getElementById('dynamics-list');
   dom.swingTableBody = document.getElementById('swing-table-body');
-
   dom.exportBpmLabel = document.getElementById('export-bpm-label');
   dom.btnCopySheet = document.getElementById('btn-copy-sheet');
   dom.btnExportMd = document.getElementById('btn-export-md');
 
-  dom.navLinks = Array.from(document.querySelectorAll('.phase-step[data-nav]'));
   dom.footerYear = document.getElementById('footer-year');
   dom.toastContainer = document.getElementById('toast-container');
 }
@@ -153,7 +160,6 @@ function cacheDom() {
 function showToast(message, { isError = false, durationMs = 2400 } = {}) {
   if (!dom.toastContainer) return;
 
-  // Keep toast stack crisp and uncluttered (max 3 visible)
   while (dom.toastContainer.children.length >= 3) {
     dom.toastContainer.removeChild(dom.toastContainer.firstChild);
   }
@@ -185,7 +191,6 @@ async function copyTextToClipboard(text, toastLabel) {
   }
 
   if (!copied) {
-    // Fallback for non-HTTPS or legacy browser contexts
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.setAttribute('readonly', '');
@@ -206,6 +211,42 @@ async function copyTextToClipboard(text, toastLabel) {
     showToast(toastLabel || `Copied ${text}`);
   } else {
     showToast('Clipboard blocked by browser — select text to copy manually.', { isError: true });
+  }
+}
+
+/* ==========================================================================
+   TAB SWITCHING
+   ========================================================================== */
+
+function setActiveTab(tabId) {
+  if (!dom.tabPanels[tabId]) return;
+  state.activeTab = tabId;
+
+  dom.wsTabs.forEach((btn) => {
+    const isActive = btn.dataset.tab === tabId;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', String(isActive));
+  });
+
+  dom.navLinks.forEach((link) => {
+    const isActive = link.dataset.nav === tabId;
+    link.classList.toggle('active', isActive);
+    if (isActive) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+
+  Object.entries(dom.tabPanels).forEach(([key, panel]) => {
+    if (!panel) return;
+    panel.classList.toggle('hidden', key !== tabId);
+  });
+
+  if (tabId === 'reverb' && envelopeRenderer) {
+    window.requestAnimationFrame(() => {
+      envelopeRenderer.render();
+    });
   }
 }
 
@@ -236,6 +277,19 @@ function loadInitialBpm() {
   return DEFAULT_BPM;
 }
 
+function loadInitialTab() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tab = (params.get('tab') || '').toLowerCase();
+    if (tab === 'reverb' || tab === 'delay' || tab === 'groove') {
+      return tab;
+    }
+  } catch {
+    // Ignore
+  }
+  return 'reverb';
+}
+
 function saveBpm(bpm) {
   try {
     window.localStorage.setItem(STORAGE_KEY, String(bpm));
@@ -259,6 +313,7 @@ function setBpm(nextBpm, { syncInput = true } = {}) {
 
 function updateDeckStatusVisuals() {
   const isAudioActive = audioEngine.metronomeRunning || Boolean(state.activeAuditionId);
+  const summary = calculateTempoSummary(state.bpm);
 
   if (dom.studioDeck) {
     dom.studioDeck.dataset.state = isAudioActive || state.isAnalyzingFile ? 'active' : 'standby';
@@ -270,7 +325,7 @@ function updateDeckStatusVisuals() {
     } else if (state.activeAuditionId) {
       dom.deckStatePill.textContent = state.activeAuditionType === 'reverb' ? 'REVERB AUDITION' : 'DELAY AUDITION';
     } else if (audioEngine.metronomeRunning) {
-      dom.deckStatePill.textContent = 'METRONOME ON';
+      dom.deckStatePill.textContent = 'CLICK ON';
     } else {
       dom.deckStatePill.textContent = 'STANDBY';
     }
@@ -280,7 +335,7 @@ function updateDeckStatusVisuals() {
     if (state.activeAuditionId && state.activeAuditionLabel) {
       dom.deckLiveReadout.textContent = `AUDITIONING ${state.activeAuditionLabel}`;
     } else {
-      dom.deckLiveReadout.textContent = `${formatBpm(state.bpm)} BPM · 4/4 GRID`;
+      dom.deckLiveReadout.textContent = `${formatBpm(state.bpm)} BPM · 1 BEAT ${formatMs(summary.beatMs)} ms · 1 BAR ${formatMs(summary.barMs)} ms`;
     }
   }
 
@@ -288,7 +343,7 @@ function updateDeckStatusVisuals() {
     dom.btnMetronome.classList.toggle('active', audioEngine.metronomeRunning);
     dom.btnMetronome.setAttribute('aria-pressed', String(audioEngine.metronomeRunning));
     dom.metroGlyph.textContent = audioEngine.metronomeRunning ? '■' : '▶';
-    dom.metroLabel.textContent = audioEngine.metronomeRunning ? 'Click On' : 'Metronome';
+    dom.metroLabel.textContent = audioEngine.metronomeRunning ? 'Click On' : 'Click';
   }
 
   if (dom.btnStopAudio) {
@@ -334,7 +389,7 @@ function getActiveReverbContext() {
       sourceId: 'custom',
       isCustom: true,
       name: 'Custom Reverb',
-      kicker: 'LIVE ENVELOPE DIAGRAM · CUSTOM BUILDER',
+      kicker: 'LIVE ENVELOPE · CUSTOM BUILDER',
       auditionColor: 'plate',
       timing: custom,
       presets,
@@ -342,12 +397,12 @@ function getActiveReverbContext() {
     };
   }
 
-  const preset = presets.find((p) => p.id === state.selectedReverbSource) || presets[1];
+  const preset = presets.find((p) => p.id === state.selectedReverbSource) || presets[0];
   return {
     sourceId: preset.id,
     isCustom: false,
     name: preset.name,
-    kicker: `LIVE ENVELOPE DIAGRAM · ${preset.tag}`,
+    kicker: `LIVE ENVELOPE · ${preset.tag}`,
     auditionColor: preset.auditionColor,
     timing: preset,
     presets,
@@ -365,6 +420,7 @@ function renderTempoHeaderAndSummary() {
   } else {
     dom.bpmHeroDisplay.textContent = bpmStr;
   }
+
   dom.exportBpmLabel.textContent = `${bpmStr} BPM`;
 
   dom.genrePills.forEach((pill) => {
@@ -372,31 +428,289 @@ function renderTempoHeaderAndSummary() {
     pill.classList.toggle('active', Math.abs(pillBpm - state.bpm) < 0.05);
   });
 
-  dom.summaryBeatMs.textContent = `${formatMs(summary.beatMs)} ms`;
-  dom.summaryBeatSec.textContent = `${formatSec(summary.beatMs)} s · CLICK TO COPY`;
-  dom.summaryBeatBtn.dataset.copyVal = formatMs(summary.beatMs);
-  dom.summaryBeatBtn.dataset.copyLabel = `Copied ${formatMs(summary.beatMs)} ms (1 Beat @ ${bpmStr} BPM)`;
-
-  dom.summaryBarMs.textContent = `${formatMs(summary.barMs)} ms`;
-  dom.summaryBarSec.textContent = `${formatSec(summary.barMs)} s · CLICK TO COPY`;
-  dom.summaryBarBtn.dataset.copyVal = formatMs(summary.barMs);
-  dom.summaryBarBtn.dataset.copyLabel = `Copied ${formatMs(summary.barMs)} ms (1 Bar @ ${bpmStr} BPM)`;
-
-  dom.summaryBeatHz.textContent = `${formatHz(summary.beatHz)} Hz`;
-  dom.summaryHzBtn.dataset.copyVal = formatHz(summary.beatHz);
-  dom.summaryHzBtn.dataset.copyLabel = `Copied ${formatHz(summary.beatHz)} Hz (1/4 LFO @ ${bpmStr} BPM)`;
-
-  dom.summaryBeat48k.textContent = `${formatSamples(summary.beatSamples48000)} smp`;
-  dom.summaryBeat44k.textContent = `48k · 44.1k: ${formatSamples(summary.beatSamples44100)}`;
-  dom.summarySamplesBtn.dataset.copyVal = String(summary.beatSamples48000);
-  dom.summarySamplesBtn.dataset.copyLabel = `Copied ${formatSamples(summary.beatSamples48000)} samples (1 Beat @ 48 kHz)`;
+  const beatMsStr = formatMs(summary.beatMs);
+  dom.quickBeatVal.textContent = `${beatMsStr} ms`;
+  dom.btnQuickBeatCopy.dataset.copyVal = beatMsStr;
+  dom.btnQuickBeatCopy.dataset.copyLabel = `Copied ${beatMsStr} ms (1 Beat @ ${bpmStr} BPM)`;
 
   updateDeckStatusVisuals();
 }
 
-function renderDelayMatrix() {
-  const matrix = calculateDelayMatrix(state.bpm);
+function renderReverbSection() {
+  const ctx = getActiveReverbContext();
   const bpmStr = formatBpm(state.bpm);
+  const unitMode = state.reverbUnitMode;
+  const activeTiming = ctx.timing;
+
+  // 1. Render 7-Row Scannable Reverb Table
+  const tbodyFrag = document.createDocumentFragment();
+  for (const preset of ctx.presets) {
+    const isSelected = state.selectedReverbSource === preset.id;
+    const auditionId = `reverb:${preset.id}`;
+    const isPlaying = state.activeAuditionId === auditionId;
+
+    const pd = formatReverbDisplay(preset.preDelayMs, unitMode, 'predelay');
+    const dec = formatReverbDisplay(preset.decayMs, unitMode, 'decay');
+    const tot = formatReverbDisplay(preset.totalMs, unitMode, 'total');
+
+    const rowSummary = `${preset.name} @ ${bpmStr} BPM: Pre-Delay ${formatMs(preset.preDelayMs)} ms, Decay ${formatSecShort(preset.decayMs)} s (${formatMs(preset.decayMs)} ms), Total ${formatSecShort(preset.totalMs)} s`;
+
+    const tr = document.createElement('tr');
+    tr.className = [
+      'reverb-row',
+      isSelected ? 'selected' : '',
+      isPlaying ? 'auditioning' : '',
+    ].filter(Boolean).join(' ');
+    tr.dataset.presetId = preset.id;
+    tr.tabIndex = 0;
+
+    tr.innerHTML = `
+      <td class="rev-cell-name">
+        <div class="rev-name-top">
+          <strong class="rev-size-name">${preset.name}</strong>
+          <span class="rev-pd-pill micro">${preset.preDelayLabel} PD</span>
+          ${isSelected ? '<span class="rev-active-pill micro">ENVELOPE</span>' : ''}
+        </div>
+        <span class="rev-size-tag micro">${preset.tag}</span>
+      </td>
+      <td class="rev-cell-val" data-label="Pre-Delay">
+        <button
+          type="button"
+          class="rev-copy-btn"
+          data-copy="${pd.copyValue}"
+          data-toast="Copied ${pd.primary} (${preset.name} Pre-Delay · ${preset.preDelayLabel} @ ${bpmStr} BPM)"
+          title="Click to copy ${pd.primary}"
+        >
+          <span class="rev-val-primary">${pd.primary}</span>
+          <span class="rev-val-sub">${pd.secondary}</span>
+        </button>
+      </td>
+      <td class="rev-cell-val" data-label="Decay (RT60)">
+        <button
+          type="button"
+          class="rev-copy-btn rev-copy-decay"
+          data-copy="${dec.copyValue}"
+          data-toast="Copied ${dec.primary} (${dec.secondary} · ${preset.name} Decay @ ${bpmStr} BPM)"
+          title="Click to copy ${dec.primary}"
+        >
+          <span class="rev-val-primary">${dec.primary}</span>
+          <span class="rev-val-sub">${dec.secondary}</span>
+        </button>
+      </td>
+      <td class="rev-cell-val" data-label="Total Reverb">
+        <button
+          type="button"
+          class="rev-copy-btn"
+          data-copy="${tot.copyValue}"
+          data-toast="Copied ${tot.primary} (${tot.secondary} · ${preset.name} Total @ ${bpmStr} BPM)"
+          title="Click to copy ${tot.primary}"
+        >
+          <span class="rev-val-primary">${tot.primary}</span>
+          <span class="rev-val-sub">${tot.secondary}</span>
+        </button>
+      </td>
+      <td class="rev-cell-actions">
+        <div class="rev-actions-wrap">
+          <button
+            type="button"
+            class="rev-hear-btn"
+            data-audition-reverb="${preset.id}"
+            aria-label="Hear ${preset.name} reverb live"
+            title="${isPlaying ? 'Stop audition' : `Hear ${preset.name} (${pd.primary} PD / ${dec.primary} Decay)`}"
+          >${isPlaying ? '■ Stop' : '▶ Hear'}</button>
+          <button
+            type="button"
+            class="rev-copy-row-btn"
+            data-copy="${rowSummary}"
+            data-toast="Copied ${preset.name} @ ${bpmStr} BPM summary"
+            title="Copy full ${preset.name} settings"
+          >Copy Row</button>
+        </div>
+      </td>
+    `;
+
+    tbodyFrag.appendChild(tr);
+  }
+  dom.reverbPresetsBody.innerHTML = '';
+  dom.reverbPresetsBody.appendChild(tbodyFrag);
+
+  // 2. Update Visual Reverb Envelope Card
+  dom.envelopeKicker.textContent = ctx.kicker;
+  dom.envelopeTitle.textContent = `${ctx.name} — ${activeTiming.totalLabel}`;
+
+  if (activeTiming.valid) {
+    const pd = formatReverbDisplay(activeTiming.preDelayMs, unitMode, 'predelay');
+    const dec = formatReverbDisplay(activeTiming.decayMs, unitMode, 'decay');
+    const tot = formatReverbDisplay(activeTiming.totalMs, unitMode, 'total');
+
+    dom.envelopeVerifyBadge.textContent = `PRE + DECAY = ${tot.primary}`;
+    dom.btnAuditionEnvelope.disabled = false;
+    dom.btnCopyEnvelope.disabled = false;
+
+    dom.envValPreDelay.textContent = pd.primary;
+    dom.envSubPreDelay.textContent = `${activeTiming.preDelayNoteLabel} · ${pd.secondary}`;
+    dom.envCopyPreDelay.disabled = false;
+    dom.envCopyPreDelay.dataset.copy = pd.copyValue;
+    dom.envCopyPreDelay.dataset.toast = `Copied ${pd.primary} (${ctx.name} Pre-Delay @ ${bpmStr} BPM)`;
+
+    dom.envValDecay.textContent = dec.primary;
+    dom.envSubDecay.textContent = `${dec.secondary} · RT60`;
+    dom.envCopyDecay.disabled = false;
+    dom.envCopyDecay.dataset.copy = dec.copyValue;
+    dom.envCopyDecay.dataset.toast = `Copied ${dec.primary} (${dec.secondary} · ${ctx.name} Decay @ ${bpmStr} BPM)`;
+
+    dom.envValTotal.textContent = tot.primary;
+    dom.envSubTotal.textContent = `${tot.secondary} · ${activeTiming.totalLabel}`;
+    dom.envCopyTotal.disabled = false;
+    dom.envCopyTotal.dataset.copy = tot.copyValue;
+    dom.envCopyTotal.dataset.toast = `Copied ${tot.primary} (${ctx.name} Total @ ${bpmStr} BPM)`;
+  } else {
+    const pd = formatReverbDisplay(activeTiming.preDelayMs, unitMode, 'predelay');
+    const tot = formatReverbDisplay(activeTiming.totalMs, unitMode, 'total');
+
+    dom.envelopeVerifyBadge.textContent = 'OVERLAP WARNING';
+    dom.btnAuditionEnvelope.disabled = true;
+    dom.btnCopyEnvelope.disabled = true;
+
+    dom.envValPreDelay.textContent = pd.primary;
+    dom.envSubPreDelay.textContent = `${activeTiming.preDelayNoteLabel} (EXCEEDS TOTAL)`;
+    dom.envCopyPreDelay.disabled = false;
+    dom.envCopyPreDelay.dataset.copy = pd.copyValue;
+    dom.envCopyPreDelay.dataset.toast = `Copied ${pd.primary} (${activeTiming.preDelayNoteLabel} @ ${bpmStr} BPM)`;
+
+    dom.envValDecay.textContent = '—';
+    dom.envSubDecay.textContent = 'SHORTEN PRE-DELAY';
+    dom.envCopyDecay.disabled = true;
+
+    dom.envValTotal.textContent = tot.primary;
+    dom.envSubTotal.textContent = `${tot.secondary} · ${activeTiming.totalLabel}`;
+    dom.envCopyTotal.disabled = false;
+    dom.envCopyTotal.dataset.copy = tot.copyValue;
+    dom.envCopyTotal.dataset.toast = `Copied ${tot.primary} (${activeTiming.totalLabel} @ ${bpmStr} BPM)`;
+  }
+
+  const activeReverbAudId = `reverb:${ctx.sourceId}`;
+  dom.btnAuditionEnvelope.textContent = state.activeAuditionId === activeReverbAudId
+    ? '■ Stop'
+    : '▶ Hear';
+
+  if (envelopeRenderer) {
+    envelopeRenderer.setTiming(activeTiming, ctx.name);
+  }
+
+  // 3. Update Custom Reverb Builder Card
+  const custom = ctx.custom;
+  dom.customPreDelayNote.value = String(state.customPreDelayDenom);
+  dom.customTotalBeats.value = String(state.customTotalBeats);
+
+  const varBtns = Array.from(dom.customPreDelayVarGroup.querySelectorAll('.seg-btn'));
+  varBtns.forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.var === state.customPreDelayVariation);
+    btn.disabled = state.customPreDelayDenom === 0;
+  });
+
+  if (custom.valid) {
+    const pd = formatReverbDisplay(custom.preDelayMs, unitMode, 'predelay');
+    const dec = formatReverbDisplay(custom.decayMs, unitMode, 'decay');
+    const tot = formatReverbDisplay(custom.totalMs, unitMode, 'total');
+
+    dom.customReverbWarning.classList.add('hidden');
+    dom.btnAuditionCustom.disabled = false;
+
+    dom.customOutPreDelay.textContent = pd.primary;
+    dom.customOutPreDelaySub.textContent = `${custom.preDelayNoteLabel} · ${formatSamples(custom.preDelaySamples48000)} smp @ 48k`;
+    dom.customCopyPreDelay.disabled = false;
+    dom.customCopyPreDelay.dataset.copy = pd.copyValue;
+    dom.customCopyPreDelay.dataset.toast = `Copied ${pd.primary} (Custom Pre-Delay @ ${bpmStr} BPM)`;
+
+    dom.customOutDecay.textContent = dec.primary;
+    dom.customOutDecaySub.textContent = `${dec.secondary} · RT60`;
+    dom.customCopyDecay.disabled = false;
+    dom.customCopyDecay.dataset.copy = dec.copyValue;
+    dom.customCopyDecay.dataset.toast = `Copied ${dec.primary} (${dec.secondary} · Custom Decay @ ${bpmStr} BPM)`;
+
+    dom.customOutTotal.textContent = tot.primary;
+    dom.customOutTotalSub.textContent = `${tot.secondary} · ${custom.totalLabel}`;
+    dom.customCopyTotal.disabled = false;
+    dom.customCopyTotal.dataset.copy = tot.copyValue;
+    dom.customCopyTotal.dataset.toast = `Copied ${tot.primary} (Custom Total @ ${bpmStr} BPM)`;
+  } else {
+    const pd = formatReverbDisplay(custom.preDelayMs, unitMode, 'predelay');
+    const tot = formatReverbDisplay(custom.totalMs, unitMode, 'total');
+
+    dom.customReverbWarning.classList.remove('hidden');
+    dom.customReverbWarningText.textContent = custom.warning;
+    dom.btnAuditionCustom.disabled = true;
+
+    dom.customOutPreDelay.textContent = pd.primary;
+    dom.customOutPreDelaySub.textContent = `${custom.preDelayNoteLabel} — TOO LONG`;
+    dom.customCopyPreDelay.disabled = false;
+    dom.customCopyPreDelay.dataset.copy = pd.copyValue;
+    dom.customCopyPreDelay.dataset.toast = `Copied ${pd.primary} (Custom Pre-Delay @ ${bpmStr} BPM)`;
+
+    dom.customOutDecay.textContent = '0.00';
+    dom.customOutDecaySub.textContent = 'REDUCE PRE-DELAY';
+    dom.customCopyDecay.disabled = true;
+
+    dom.customOutTotal.textContent = tot.primary;
+    dom.customOutTotalSub.textContent = `${tot.secondary} · ${custom.totalLabel}`;
+    dom.customCopyTotal.disabled = false;
+    dom.customCopyTotal.dataset.copy = tot.copyValue;
+    dom.customCopyTotal.dataset.toast = `Copied ${tot.primary} (Custom Target @ ${bpmStr} BPM)`;
+  }
+
+  dom.btnAuditionCustom.textContent = state.activeAuditionId === 'reverb:custom'
+    ? '■ Stop Custom'
+    : '▶ Hear Custom';
+}
+
+function renderDelaySection() {
+  const bpmStr = formatBpm(state.bpm);
+
+  // 1. Top 4 Quick Vocal Delay Cards
+  const quickDelays = calculateQuickDelays(state.bpm);
+  const quickFrag = document.createDocumentFragment();
+  for (const qd of quickDelays) {
+    const auditionId = `delay:${qd.id}`;
+    const isPlaying = state.activeAuditionId === auditionId;
+    const msStr = formatMs(qd.ms);
+    const hzStr = formatHz(qd.hz);
+
+    const card = document.createElement('article');
+    card.className = isPlaying ? 'quick-delay-card auditioning' : 'quick-delay-card';
+    card.innerHTML = `
+      <div class="qd-top">
+        <div>
+          <span class="micro qd-tag">${qd.tag}</span>
+          <h3 class="qd-name">${qd.name}</h3>
+        </div>
+        <button
+          type="button"
+          class="qd-hear-btn"
+          data-audition-delay="${qd.ms}"
+          data-audition-id="${auditionId}"
+          data-audition-label="${qd.name} (${msStr} ms)"
+          aria-label="Hear ${qd.name} delay live"
+        >${isPlaying ? '■ Stop' : '▶ Hear'}</button>
+      </div>
+      <button
+        type="button"
+        class="qd-ms-btn"
+        data-copy="${msStr}"
+        data-toast="Copied ${msStr} ms (${qd.name} @ ${bpmStr} BPM)"
+        title="Click to copy ${msStr} ms"
+      >
+        <strong>${msStr} <span>ms</span></strong>
+        <span class="micro qd-sub">${hzStr} Hz · ${formatSec(qd.ms)} s · CLICK TO COPY</span>
+      </button>
+    `;
+    quickFrag.appendChild(card);
+  }
+  dom.quickDelaysGrid.innerHTML = '';
+  dom.quickDelaysGrid.appendChild(quickFrag);
+
+  // 2. Full 8-Subdivision × 3-Variation Delay Matrix
+  const matrix = calculateDelayMatrix(state.bpm);
   const srView = state.sampleRateView;
   const fragment = document.createDocumentFragment();
 
@@ -494,215 +808,6 @@ function renderDelayMatrix() {
   dom.delayMatrixBody.appendChild(fragment);
 }
 
-function renderReverbSection() {
-  const ctx = getActiveReverbContext();
-  const bpmStr = formatBpm(state.bpm);
-  const activeTiming = ctx.timing;
-
-  // 1. Update Envelope Diagram & Header
-  dom.envelopeKicker.textContent = ctx.kicker;
-  dom.envelopeTitle.textContent = `${ctx.name} — ${activeTiming.totalLabel}`;
-
-  if (activeTiming.valid) {
-    dom.envelopeVerifyBadge.textContent = `PRE + DECAY = ${formatSec(activeTiming.totalMs)}s`;
-    dom.btnAuditionEnvelope.disabled = false;
-    dom.btnCopyEnvelope.disabled = false;
-
-    const preMsStr = formatMs(activeTiming.preDelayMs);
-    const decayMsStr = formatMs(activeTiming.decayMs);
-    const totalMsStr = formatMs(activeTiming.totalMs);
-
-    dom.envValPreDelay.textContent = `${preMsStr} ms`;
-    dom.envSubPreDelay.textContent = `${activeTiming.preDelayNoteLabel} · CLICK TO COPY`;
-    dom.envCopyPreDelay.disabled = false;
-    dom.envCopyPreDelay.dataset.copy = preMsStr;
-    dom.envCopyPreDelay.dataset.toast = `Copied ${preMsStr} ms (${ctx.name} Pre-Delay @ ${bpmStr} BPM)`;
-
-    dom.envValDecay.textContent = `${decayMsStr} ms`;
-    dom.envSubDecay.textContent = `${formatSec(activeTiming.decayMs)} s RT60 · CLICK TO COPY`;
-    dom.envCopyDecay.disabled = false;
-    dom.envCopyDecay.dataset.copy = decayMsStr;
-    dom.envCopyDecay.dataset.toast = `Copied ${decayMsStr} ms / ${formatSec(activeTiming.decayMs)} s (${ctx.name} Decay @ ${bpmStr} BPM)`;
-
-    dom.envValTotal.textContent = `${totalMsStr} ms`;
-    dom.envSubTotal.textContent = `${formatSec(activeTiming.totalMs)} s · ${activeTiming.totalLabel}`;
-    dom.envCopyTotal.disabled = false;
-    dom.envCopyTotal.dataset.copy = totalMsStr;
-    dom.envCopyTotal.dataset.toast = `Copied ${totalMsStr} ms (${ctx.name} Total Tail @ ${bpmStr} BPM)`;
-  } else {
-    dom.envelopeVerifyBadge.textContent = 'OVERLAP WARNING';
-    dom.btnAuditionEnvelope.disabled = true;
-    dom.btnCopyEnvelope.disabled = true;
-
-    const preMsStr = formatMs(activeTiming.preDelayMs);
-    const totalMsStr = formatMs(activeTiming.totalMs);
-
-    dom.envValPreDelay.textContent = `${preMsStr} ms`;
-    dom.envSubPreDelay.textContent = `${activeTiming.preDelayNoteLabel} (EXCEEDS TOTAL)`;
-    dom.envCopyPreDelay.disabled = false;
-    dom.envCopyPreDelay.dataset.copy = preMsStr;
-    dom.envCopyPreDelay.dataset.toast = `Copied ${preMsStr} ms (${activeTiming.preDelayNoteLabel} @ ${bpmStr} BPM)`;
-
-    dom.envValDecay.textContent = '—';
-    dom.envSubDecay.textContent = 'SHORTEN PRE-DELAY OR EXTEND TARGET';
-    dom.envCopyDecay.disabled = true;
-
-    dom.envValTotal.textContent = `${totalMsStr} ms`;
-    dom.envSubTotal.textContent = `${formatSec(activeTiming.totalMs)} s · ${activeTiming.totalLabel}`;
-    dom.envCopyTotal.disabled = false;
-    dom.envCopyTotal.dataset.copy = totalMsStr;
-    dom.envCopyTotal.dataset.toast = `Copied ${totalMsStr} ms (${activeTiming.totalLabel} @ ${bpmStr} BPM)`;
-  }
-
-  const activeReverbAudId = `reverb:${ctx.sourceId}`;
-  dom.btnAuditionEnvelope.textContent = state.activeAuditionId === activeReverbAudId
-    ? '■ Stop Reverb'
-    : '▶ Audition Reverb';
-
-  if (envelopeRenderer) {
-    envelopeRenderer.setTiming(activeTiming, ctx.name);
-  }
-
-  // 2. Render 6 Studio Reverb Preset Cards
-  const presetsFrag = document.createDocumentFragment();
-  for (const preset of ctx.presets) {
-    const isSelected = state.selectedReverbSource === preset.id;
-    const auditionId = `reverb:${preset.id}`;
-    const isPlaying = state.activeAuditionId === auditionId;
-
-    const card = document.createElement('article');
-    card.className = [
-      'reverb-preset-card',
-      isSelected ? 'selected' : '',
-      isPlaying ? 'auditioning' : '',
-    ].filter(Boolean).join(' ');
-    card.dataset.presetId = preset.id;
-    card.tabIndex = 0;
-    card.setAttribute('aria-label', `${preset.name} reverb preset`);
-
-    const preMsStr = formatMs(preset.preDelayMs);
-    const decayMsStr = formatMs(preset.decayMs);
-    const decaySecStr = formatSec(preset.decayMs);
-    const totalMsStr = formatMs(preset.totalMs);
-
-    card.innerHTML = `
-      <div>
-        <div class="preset-top">
-          <span class="micro preset-tag">${preset.tag}</span>
-          ${isSelected ? '<span class="preset-selected-pill">ON DIAGRAM</span>' : ''}
-        </div>
-        <h3 class="preset-name">${preset.name}</h3>
-        <p class="preset-desc">${preset.description}</p>
-      </div>
-
-      <div class="preset-metrics">
-        <button
-          type="button"
-          class="preset-stat-btn"
-          data-copy="${preMsStr}"
-          data-toast="Copied ${preMsStr} ms (${preset.name} Pre-Delay · ${preset.preDelayLabel} @ ${bpmStr} BPM)"
-          title="Click to copy Pre-Delay ms"
-        >
-          <span class="micro">PRE-DELAY (${preset.preDelayLabel})</span>
-          <strong>${preMsStr} ms</strong>
-          <span class="preset-stat-sub">${formatSamples(preset.preDelaySamples48000)} smp @ 48k</span>
-        </button>
-
-        <button
-          type="button"
-          class="preset-stat-btn"
-          data-copy="${decayMsStr}"
-          data-toast="Copied ${decayMsStr} ms (${preset.name} Decay RT60 · ${decaySecStr} s @ ${bpmStr} BPM)"
-          title="Click to copy Decay RT60 ms"
-        >
-          <span class="micro">DECAY (RT60)</span>
-          <strong>${decayMsStr} ms</strong>
-          <span class="preset-stat-sub">${decaySecStr} s</span>
-        </button>
-      </div>
-
-      <div class="preset-foot">
-        <span class="preset-math-line">Total: <strong>${totalMsStr} ms</strong> (${preset.totalLabel})</span>
-        <button
-          type="button"
-          class="preset-audition-btn"
-          data-audition-reverb="${preset.id}"
-          aria-label="Audition ${preset.name} reverb"
-        >${isPlaying ? '■ Stop' : '▶ Audition'}</button>
-      </div>
-    `;
-
-    presetsFrag.appendChild(card);
-  }
-  dom.reverbPresetsGrid.innerHTML = '';
-  dom.reverbPresetsGrid.appendChild(presetsFrag);
-
-  // 3. Render Custom Reverb Builder State
-  const custom = ctx.custom;
-  dom.customPreDelayNote.value = String(state.customPreDelayDenom);
-  dom.customTotalBeats.value = String(state.customTotalBeats);
-
-  const varBtns = Array.from(dom.customPreDelayVarGroup.querySelectorAll('.seg-btn'));
-  varBtns.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.var === state.customPreDelayVariation);
-    btn.disabled = state.customPreDelayDenom === 0;
-  });
-
-  if (custom.valid) {
-    dom.customReverbWarning.classList.add('hidden');
-    dom.btnAuditionCustom.disabled = false;
-
-    const preMsStr = formatMs(custom.preDelayMs);
-    const decayMsStr = formatMs(custom.decayMs);
-    const totalMsStr = formatMs(custom.totalMs);
-
-    dom.customOutPreDelay.textContent = `${preMsStr} ms`;
-    dom.customOutPreDelaySub.textContent = `${custom.preDelayNoteLabel} · ${formatSamples(custom.preDelaySamples48000)} smp @ 48k`;
-    dom.customCopyPreDelay.disabled = false;
-    dom.customCopyPreDelay.dataset.copy = preMsStr;
-    dom.customCopyPreDelay.dataset.toast = `Copied ${preMsStr} ms (Custom Pre-Delay @ ${bpmStr} BPM)`;
-
-    dom.customOutDecay.textContent = `${decayMsStr} ms`;
-    dom.customOutDecaySub.textContent = `${formatSec(custom.decayMs)} s RT60`;
-    dom.customCopyDecay.disabled = false;
-    dom.customCopyDecay.dataset.copy = decayMsStr;
-    dom.customCopyDecay.dataset.toast = `Copied ${decayMsStr} ms (${formatSec(custom.decayMs)} s Custom Decay @ ${bpmStr} BPM)`;
-
-    dom.customOutTotal.textContent = `${totalMsStr} ms`;
-    dom.customOutTotalSub.textContent = `${formatSec(custom.totalMs)} s · ${custom.totalLabel}`;
-    dom.customCopyTotal.disabled = false;
-    dom.customCopyTotal.dataset.copy = totalMsStr;
-    dom.customCopyTotal.dataset.toast = `Copied ${totalMsStr} ms (Custom Reverb Total @ ${bpmStr} BPM)`;
-  } else {
-    dom.customReverbWarning.classList.remove('hidden');
-    dom.customReverbWarningText.textContent = custom.warning;
-    dom.btnAuditionCustom.disabled = true;
-
-    const preMsStr = formatMs(custom.preDelayMs);
-    const totalMsStr = formatMs(custom.totalMs);
-
-    dom.customOutPreDelay.textContent = `${preMsStr} ms`;
-    dom.customOutPreDelaySub.textContent = `${custom.preDelayNoteLabel} — TOO LONG`;
-    dom.customCopyPreDelay.disabled = false;
-    dom.customCopyPreDelay.dataset.copy = preMsStr;
-    dom.customCopyPreDelay.dataset.toast = `Copied ${preMsStr} ms (Custom Pre-Delay @ ${bpmStr} BPM)`;
-
-    dom.customOutDecay.textContent = '0.00 ms';
-    dom.customOutDecaySub.textContent = 'REDUCE PRE-DELAY OR RAISE TARGET';
-    dom.customCopyDecay.disabled = true;
-
-    dom.customOutTotal.textContent = `${totalMsStr} ms`;
-    dom.customOutTotalSub.textContent = `${formatSec(custom.totalMs)} s · ${custom.totalLabel}`;
-    dom.customCopyTotal.disabled = false;
-    dom.customCopyTotal.dataset.copy = totalMsStr;
-    dom.customCopyTotal.dataset.toast = `Copied ${totalMsStr} ms (Custom Target Total @ ${bpmStr} BPM)`;
-  }
-
-  dom.btnAuditionCustom.textContent = state.activeAuditionId === 'reverb:custom'
-    ? '■ Stop Custom'
-    : '▶ Audition Custom';
-}
-
 function renderDynamicsAndGroove() {
   const bpmStr = formatBpm(state.bpm);
   const dynamics = calculateDynamicsTimings(state.bpm);
@@ -776,8 +881,8 @@ function renderDynamicsAndGroove() {
 
 function renderAll() {
   renderTempoHeaderAndSummary();
-  renderDelayMatrix();
   renderReverbSection();
+  renderDelaySection();
   renderDynamicsAndGroove();
 }
 
@@ -788,7 +893,6 @@ function renderAll() {
 function triggerTapTempo() {
   const res = tapEngine.tap(performance.now());
 
-  // Tactile visual pulse
   dom.btnTapTempo.classList.add('tapped');
   dom.tapPadLed.classList.add('flash');
   pulseBeatVisual((res.tapCount - 1) % 4, (res.tapCount - 1) % 4 === 0);
@@ -798,22 +902,18 @@ function triggerTapTempo() {
     dom.tapPadLed.classList.remove('flash');
   }, 110);
 
-  dom.tapStabilityLabel.textContent = res.stabilityLabel;
   if (res.bpm !== null) {
-    const outlierNote = res.droppedOutliers > 0 ? ` · ${res.droppedOutliers} SPIKE DROPPED` : '';
-    dom.tapCountMeta.textContent = `TAPS: ${res.tapCount}/8 · STABILITY ${res.stability}%${outlierNote}`;
+    dom.tapStabilityLabel.textContent = `${res.stabilityLabel} ${res.tapCount}/8`;
     setBpm(res.bpm);
   } else {
-    dom.tapCountMeta.textContent = `TAP 1/8 · TAP AGAIN TO LOCK TEMPO`;
+    dom.tapStabilityLabel.textContent = 'TAP AGAIN';
   }
 
-  // Schedule clean visual idle reset matching engine's 2.5s auto-reset
   if (tapIdleTimer !== null) {
     window.clearTimeout(tapIdleTimer);
   }
   tapIdleTimer = window.setTimeout(() => {
     dom.tapStabilityLabel.textContent = 'READY';
-    dom.tapCountMeta.textContent = '8-TAP ROLLING AVG · AUTO-RESET 2.5S';
   }, 2600);
 }
 
@@ -848,7 +948,7 @@ async function handleAuditionReverb(sourceId) {
   }
 
   if (!ctx.timing.valid) {
-    showToast('Shorten Pre-Delay or increase Target Total before auditioning.', { isError: true });
+    showToast('Shorten Pre-Delay or increase Total Length before auditioning.', { isError: true });
     renderReverbSection();
     return;
   }
@@ -861,7 +961,7 @@ async function handleAuditionReverb(sourceId) {
       decayMs: ctx.timing.decayMs,
       color: ctx.auditionColor,
       id: auditionId,
-      label: `${ctx.name} (${formatMs(ctx.timing.preDelayMs)}ms / ${formatSec(ctx.timing.decayMs)}s)`,
+      label: `${ctx.name} (${formatMs(ctx.timing.preDelayMs)}ms / ${formatSecShort(ctx.timing.decayMs)}s)`,
     });
     if (envelopeRenderer) {
       envelopeRenderer.startPlayhead(info.totalMs, info.startPerfMs);
@@ -930,7 +1030,7 @@ function downloadMarkdownSheet() {
    ========================================================================== */
 
 function bindEvents() {
-  // Direct numeric BPM input (non-intrusive while typing decimals)
+  // Direct numeric BPM input — live instant updates as you type
   dom.bpmInput.addEventListener('input', () => {
     const raw = dom.bpmInput.value.trim();
     if (raw === '') return;
@@ -952,27 +1052,26 @@ function bindEvents() {
   dom.bpmInput.addEventListener('change', commitBpmInput);
   dom.bpmInput.addEventListener('blur', commitBpmInput);
 
-  // Precision nudge & ÷2 / ×2 buttons
+  // Nudge & ÷2 / ×2 buttons
   document.querySelectorAll('.deck-nudge-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (btn.dataset.nudge) {
         setBpm(state.bpm + Number(btn.dataset.nudge));
       } else if (btn.dataset.scale) {
-        const next = state.bpm * Number(btn.dataset.scale);
-        setBpm(next);
+        setBpm(state.bpm * Number(btn.dataset.scale));
         showToast(`Tempo scaled to ${formatBpm(state.bpm)} BPM`);
       }
     });
   });
 
-  // Genre quick preset pills
+  // Quick BPM preset pills
   dom.genrePills.forEach((pill) => {
     pill.addEventListener('click', () => {
       setBpm(Number(pill.dataset.bpm));
     });
   });
 
-  // Tactile Tap Tempo Pad (pointerdown for zero-latency tap feel + keyboard accessibility)
+  // Tactile Tap Tempo Button (pointerdown for zero-latency tap feel + keyboard click)
   let pointerHandledTap = false;
   dom.btnTapTempo.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -988,7 +1087,7 @@ function bindEvents() {
     triggerTapTempo();
   });
 
-  // Metronome & Stop Audio & Volume
+  // Metronome, Stop, Volume
   dom.btnMetronome.addEventListener('click', async () => {
     try {
       await audioEngine.toggleMetronome(state.bpm);
@@ -1008,7 +1107,7 @@ function bindEvents() {
     audioEngine.setVolume(dom.volumeSlider.value);
   });
 
-  // Quick Audio Drop Auto-BPM
+  // Audio Drop Auto-BPM
   dom.btnDropSong.addEventListener('click', () => {
     dom.bpmAudioInput.value = '';
     dom.bpmAudioInput.click();
@@ -1021,7 +1120,6 @@ function bindEvents() {
     }
   });
 
-  // Drag & drop directly onto the Studio Deck console
   ['dragenter', 'dragover'].forEach((evt) => {
     dom.studioDeck.addEventListener(evt, (e) => {
       e.preventDefault();
@@ -1063,81 +1161,51 @@ function bindEvents() {
     dom.detectBanner.classList.add('hidden');
   });
 
-  // Summary Reference Tiles copy
-  [dom.summaryBeatBtn, dom.summaryBarBtn, dom.summaryHzBtn, dom.summarySamplesBtn].forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.copyVal) {
-        copyTextToClipboard(btn.dataset.copyVal, btn.dataset.copyLabel);
-      }
+  // Header nav & Workspace tabs
+  dom.navLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      setActiveTab(link.dataset.nav);
     });
   });
 
-  // Sample Rate Filter Segmented Control
-  dom.sampleRateFilter.addEventListener('click', (e) => {
-    const btn = e.target.closest('.seg-btn');
-    if (!btn) return;
-    state.sampleRateView = btn.dataset.sr;
-    dom.sampleRateFilter.querySelectorAll('.seg-btn').forEach((b) => {
-      b.classList.toggle('active', b === btn);
+  dom.wsTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      setActiveTab(tab.dataset.tab);
     });
-    renderDelayMatrix();
   });
 
-  // Delay Matrix delegated Click (Copy & Audition) + Double-Click Audition
-  dom.delayMatrixBody.addEventListener('click', (e) => {
-    const copyBtn = e.target.closest('[data-copy]');
-    if (copyBtn) {
-      copyTextToClipboard(copyBtn.dataset.copy, copyBtn.dataset.toast);
-      return;
-    }
-
-    const audBtn = e.target.closest('[data-audition-delay]');
-    if (audBtn) {
-      handleAuditionDelay(
-        Number(audBtn.dataset.auditionDelay),
-        audBtn.dataset.auditionId,
-        audBtn.dataset.auditionLabel
+  // Workspace quick actions
+  dom.btnQuickBeatCopy.addEventListener('click', () => {
+    if (dom.btnQuickBeatCopy.dataset.copyVal) {
+      copyTextToClipboard(
+        dom.btnQuickBeatCopy.dataset.copyVal,
+        dom.btnQuickBeatCopy.dataset.copyLabel
       );
     }
   });
 
-  dom.delayMatrixBody.addEventListener('dblclick', (e) => {
-    if (e.target.closest('button')) return;
-    const cell = e.target.closest('.delay-cell');
-    if (!cell) return;
-    const ms = Number(cell.dataset.delayMs);
-    handleAuditionDelay(ms, cell.dataset.auditionId, `${cell.dataset.noteTag} (${formatMs(ms)} ms)`);
-  });
+  dom.btnQuickExportMd.addEventListener('click', downloadMarkdownSheet);
 
-  // Envelope Header Actions & Clickable Metrics
-  dom.btnAuditionEnvelope.addEventListener('click', () => {
-    handleAuditionReverb(state.selectedReverbSource);
-  });
-
-  dom.btnCopyEnvelope.addEventListener('click', () => {
-    const ctx = getActiveReverbContext();
-    if (!ctx.timing.valid) return;
-    const pairText = `Pre-Delay: ${formatMs(ctx.timing.preDelayMs)} ms (${ctx.timing.preDelayNoteLabel}) | Decay: ${formatMs(ctx.timing.decayMs)} ms (${formatSec(ctx.timing.decayMs)} s) | Total: ${formatMs(ctx.timing.totalMs)} ms @ ${formatBpm(state.bpm)} BPM`;
-    copyTextToClipboard(pairText, `Copied ${ctx.name} Pre-Delay + Decay pair`);
-  });
-
-  [dom.envCopyPreDelay, dom.envCopyDecay, dom.envCopyTotal].forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (!btn.disabled && btn.dataset.copy) {
-        copyTextToClipboard(btn.dataset.copy, btn.dataset.toast);
-      }
+  // Reverb Unit Mode Switcher
+  dom.reverbUnitFilter.addEventListener('click', (e) => {
+    const btn = e.target.closest('.seg-btn');
+    if (!btn) return;
+    state.reverbUnitMode = btn.dataset.unit;
+    dom.reverbUnitFilter.querySelectorAll('.seg-btn').forEach((b) => {
+      b.classList.toggle('active', b === btn);
     });
+    renderReverbSection();
   });
 
-  // Reverb Preset Cards Grid (Select, Copy Metric, Audition)
-  dom.reverbPresetsGrid.addEventListener('click', (e) => {
+  // Reverb Table delegation (Copy Value, Copy Row, Hear, Select Row for Envelope)
+  dom.reverbPresetsBody.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('[data-copy]');
-    const card = e.target.closest('.reverb-preset-card');
+    const row = e.target.closest('.reverb-row');
 
     if (copyBtn) {
       e.stopPropagation();
-      if (card) {
-        state.selectedReverbSource = card.dataset.presetId;
+      if (row) {
+        state.selectedReverbSource = row.dataset.presetId;
         renderReverbSection();
       }
       copyTextToClipboard(copyBtn.dataset.copy, copyBtn.dataset.toast);
@@ -1151,19 +1219,39 @@ function bindEvents() {
       return;
     }
 
-    if (card) {
-      state.selectedReverbSource = card.dataset.presetId;
+    if (row) {
+      state.selectedReverbSource = row.dataset.presetId;
       renderReverbSection();
     }
   });
 
-  dom.reverbPresetsGrid.addEventListener('keydown', (e) => {
+  dom.reverbPresetsBody.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const card = e.target.closest('.reverb-preset-card');
-    if (!card || e.target.closest('button')) return;
+    const row = e.target.closest('.reverb-row');
+    if (!row || e.target.closest('button')) return;
     e.preventDefault();
-    state.selectedReverbSource = card.dataset.presetId;
+    state.selectedReverbSource = row.dataset.presetId;
     renderReverbSection();
+  });
+
+  // Envelope Header Actions & Clickable Metrics
+  dom.btnAuditionEnvelope.addEventListener('click', () => {
+    handleAuditionReverb(state.selectedReverbSource);
+  });
+
+  dom.btnCopyEnvelope.addEventListener('click', () => {
+    const ctx = getActiveReverbContext();
+    if (!ctx.timing.valid) return;
+    const pairText = `${ctx.name} @ ${formatBpm(state.bpm)} BPM: Pre-Delay ${formatMs(ctx.timing.preDelayMs)} ms (${ctx.timing.preDelayNoteLabel}), Decay ${formatSecShort(ctx.timing.decayMs)} s (${formatMs(ctx.timing.decayMs)} ms), Total ${formatSecShort(ctx.timing.totalMs)} s`;
+    copyTextToClipboard(pairText, `Copied ${ctx.name} Pre-Delay + Decay pair`);
+  });
+
+  [dom.envCopyPreDelay, dom.envCopyDecay, dom.envCopyTotal].forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!btn.disabled && btn.dataset.copy) {
+        copyTextToClipboard(btn.dataset.copy, btn.dataset.toast);
+      }
+    });
   });
 
   // Custom Reverb Builder Controls
@@ -1205,6 +1293,61 @@ function bindEvents() {
     });
   });
 
+  // Quick Vocal Delays Delegation
+  dom.quickDelaysGrid.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      copyTextToClipboard(copyBtn.dataset.copy, copyBtn.dataset.toast);
+      return;
+    }
+
+    const audBtn = e.target.closest('[data-audition-delay]');
+    if (audBtn) {
+      handleAuditionDelay(
+        Number(audBtn.dataset.auditionDelay),
+        audBtn.dataset.auditionId,
+        audBtn.dataset.auditionLabel
+      );
+    }
+  });
+
+  // Sample Rate Filter Segmented Control
+  dom.sampleRateFilter.addEventListener('click', (e) => {
+    const btn = e.target.closest('.seg-btn');
+    if (!btn) return;
+    state.sampleRateView = btn.dataset.sr;
+    dom.sampleRateFilter.querySelectorAll('.seg-btn').forEach((b) => {
+      b.classList.toggle('active', b === btn);
+    });
+    renderDelaySection();
+  });
+
+  // Delay Matrix delegated Click & Double-Click
+  dom.delayMatrixBody.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      copyTextToClipboard(copyBtn.dataset.copy, copyBtn.dataset.toast);
+      return;
+    }
+
+    const audBtn = e.target.closest('[data-audition-delay]');
+    if (audBtn) {
+      handleAuditionDelay(
+        Number(audBtn.dataset.auditionDelay),
+        audBtn.dataset.auditionId,
+        audBtn.dataset.auditionLabel
+      );
+    }
+  });
+
+  dom.delayMatrixBody.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button')) return;
+    const cell = e.target.closest('.delay-cell');
+    if (!cell) return;
+    const ms = Number(cell.dataset.delayMs);
+    handleAuditionDelay(ms, cell.dataset.auditionId, `${cell.dataset.noteTag} (${formatMs(ms)} ms)`);
+  });
+
   // Dynamics & Swing Copy Delegation
   dom.dynamicsList.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-copy]');
@@ -1230,13 +1373,6 @@ function bindEvents() {
 
   dom.btnExportMd.addEventListener('click', downloadMarkdownSheet);
 
-  // Header nav active state
-  dom.navLinks.forEach((link) => {
-    link.addEventListener('click', () => {
-      dom.navLinks.forEach((l) => l.classList.toggle('active', l === link));
-    });
-  });
-
   // Global Studio Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1253,7 +1389,16 @@ function bindEvents() {
     if (isEditing) return;
 
     const keyLower = e.key.toLowerCase();
-    if (keyLower === 't') {
+    if (e.key === '1') {
+      e.preventDefault();
+      setActiveTab('reverb');
+    } else if (e.key === '2') {
+      e.preventDefault();
+      setActiveTab('delay');
+    } else if (e.key === '3') {
+      e.preventDefault();
+      setActiveTab('groove');
+    } else if (keyLower === 't') {
       e.preventDefault();
       triggerTapTempo();
     } else if (keyLower === 'm') {
@@ -1284,8 +1429,8 @@ function bindEvents() {
       envelopeRenderer.stopPlayhead();
     }
 
-    renderDelayMatrix();
     renderReverbSection();
+    renderDelaySection();
     updateDeckStatusVisuals();
   });
 }
@@ -1308,6 +1453,7 @@ function init() {
 
   bindEvents();
   renderAll();
+  setActiveTab(loadInitialTab());
 }
 
 if (document.readyState === 'loading') {
