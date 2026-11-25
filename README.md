@@ -10,7 +10,7 @@
 
 ## Features
 
-- **Zero-Scroll Above-the-Fold Reverb Workspace** — Land on the page, type any BPM (`20–300`, including decimals like `128.5`), tap tempo, or drop an audio track, and immediately see all **7 Tempo-Synced Reverb Sizes** above the fold with zero extra clicks.
+- **Zero-Scroll Above-the-Fold Reverb Workspace** — Land on the page, type any BPM (`20–300`, whole numbers only; decimals are rounded), tap tempo, or drop an audio track, and immediately see all **7 Tempo-Synced Reverb Sizes** above the fold with zero extra clicks.
 - **Sleek Compact Dark Tempo Bar** — Direct live-updating BPM input, `-1 / +1 / ÷2 / ×2` controls, quick presets (`75 / 90 / 120 / 140 / 160`), tactile **Tap Tempo (`T`)** with stability readout, studio click **Metronome (`M`)**, **Volume**, and drag-and-drop **Auto-BPM** detection.
 - **7 Musically Exact Reverb Presets + Unit Switcher** — Switch seamlessly between **Plugin Ready (`ms / s`)** (Pre-Delay in `ms`, Decay & Total in `s` matching Valhalla VintageVerb, Logic ChromaVerb, FabFilter Pro-R 2, and Waves H-Reverb), **All `ms`**, and **All `sec`**. Every preset guarantees `Pre-Delay + Decay = Exact Musical Length`:
   1. **Hall** — `2 Bars · 8 Beats` (`1/32` Pre-Delay -> `62.50 ms` PD / `3.94 s` (`3937.50 ms`) Decay / `4.00 s` Total @ 120 BPM)
@@ -50,7 +50,6 @@
 | `T` | Tap Tempo (8-tap rolling window, 2.5s auto-reset, `> 1.8×` median spike rejection) |
 | `M` | Toggle Studio Click Metronome |
 | `-` / `+` | Adjust BPM by `-1` / `+1` |
-| `Shift` + `-` / `+` | Adjust BPM by `-0.5` / `+0.5` |
 | `Esc` | Stop Metronome & Active Audition |
 
 ---
