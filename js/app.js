@@ -1408,10 +1408,10 @@ function bindEvents() {
       });
     } else if (e.key === '+' || e.key === '=') {
       e.preventDefault();
-      setBpm(state.bpm + (e.shiftKey ? 0.5 : 1));
+      setBpm(state.bpm + (1));
     } else if (e.key === '-' || e.key === '_') {
       e.preventDefault();
-      setBpm(state.bpm - (e.shiftKey ? 0.5 : 1));
+      setBpm(state.bpm - (1));
     }
   });
 

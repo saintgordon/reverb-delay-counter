@@ -191,7 +191,7 @@ export function clampBpm(bpm) {
     return DEFAULT_BPM;
   }
   const clamped = Math.min(MAX_BPM, Math.max(MIN_BPM, num));
-  return Math.round(clamped * 100) / 100;
+  return Math.round(clamped);
 }
 
 /**
@@ -674,7 +674,7 @@ export class TapTempoEngine {
     const meanInterval = kept.reduce((acc, v) => acc + v, 0) / kept.length;
     const rawBpm = 60000 / meanInterval;
     const clampedBpm = clampBpm(rawBpm);
-    const smoothedBpm = Math.round(clampedBpm * 10) / 10;
+    const smoothedBpm = Math.round(clampedBpm);
 
     let stability = 55;
     let stabilityLabel = 'WARMING UP';

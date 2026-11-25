@@ -731,7 +731,7 @@ export class StudioAuditionEngine {
       }
     }
 
-    const detectedBpm = clampBpm(Math.round(((60 * frameRate) / refinedLag) * 10) / 10);
+    const detectedBpm = clampBpm(Math.round((60 * frameRate) / refinedLag));
     const ratio = secondScore > 0 ? bestScore / secondScore : 1.5;
     const confidence = Math.round(Math.max(35, Math.min(99, (ratio - 0.9) * 55)));
 

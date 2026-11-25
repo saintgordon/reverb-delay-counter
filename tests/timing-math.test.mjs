@@ -31,7 +31,8 @@ describe('BPM clamping, parsing, and formatting', () => {
     assert.equal(clampBpm(5), MIN_BPM);
     assert.equal(clampBpm(-40), MIN_BPM);
     assert.equal(clampBpm(20), 20);
-    assert.equal(clampBpm(128.5), 128.5);
+    assert.equal(clampBpm(129), 129);
+    assert.equal(clampBpm(120.4), 120);
     assert.equal(clampBpm(300), 300);
     assert.equal(clampBpm(999), MAX_BPM);
     assert.equal(clampBpm(NaN), DEFAULT_BPM);
@@ -40,8 +41,8 @@ describe('BPM clamping, parsing, and formatting', () => {
 
   it('parses decimal and comma-formatted BPM strings cleanly', () => {
     assert.equal(parseBpmInput('120'), 120);
-    assert.equal(parseBpmInput('128.5'), 128.5);
-    assert.equal(parseBpmInput('92,4'), 92.4);
+    assert.equal(parseBpmInput('129'), 129);
+    assert.equal(parseBpmInput('92,4'), 92);
     assert.equal(parseBpmInput('10'), 20);
     assert.equal(parseBpmInput('450'), 300);
     assert.equal(parseBpmInput(''), null);
@@ -50,8 +51,8 @@ describe('BPM clamping, parsing, and formatting', () => {
 
   it('formats integer and decimal BPM cleanly', () => {
     assert.equal(formatBpm(120), '120');
-    assert.equal(formatBpm(128.5), '128.5');
-    assert.equal(formatBpm(92.45), '92.45');
+    assert.equal(formatBpm(129), '129');
+    assert.equal(formatBpm(92.45), '92');
   });
 });
 
@@ -117,32 +118,32 @@ describe('Delay Time, Quick Vocal Delays & LFO Matrix at 120 BPM', () => {
   });
 });
 
-describe('Decimal BPM accuracy (128.5 BPM & 92.4 BPM)', () => {
-  it('calculates exact fractional delay times, Hz, and samples at 128.5 BPM', () => {
-    const summary = calculateTempoSummary(128.5);
-    const expectedBeatMs = 60000 / 128.5;
+describe('Decimal BPM accuracy (129 BPM & 92 BPM)', () => {
+  it('calculates exact fractional delay times, Hz, and samples at 129 BPM', () => {
+    const summary = calculateTempoSummary(129);
+    const expectedBeatMs = 60000 / 129;
     assert.ok(Math.abs(summary.beatMs - expectedBeatMs) < 1e-9);
-    assert.equal(formatMs(summary.beatMs), '466.93');
+    assert.equal(formatMs(summary.beatMs), '465.12');
 
-    const eighthDotted = calculateDelayCell(128.5, 8, 'dotted');
-    const expectedEighthDotted = ((240000 / 128.5) / 8) * 1.5;
+    const eighthDotted = calculateDelayCell(129, 8, 'dotted');
+    const expectedEighthDotted = ((240000 / 129) / 8) * 1.5;
     assert.ok(Math.abs(eighthDotted.ms - expectedEighthDotted) < 1e-9);
-    assert.equal(formatMs(eighthDotted.ms), '350.19');
+    assert.equal(formatMs(eighthDotted.ms), '348.84');
     assert.equal(eighthDotted.samples48000, Math.round((expectedEighthDotted / 1000) * 48000));
     assert.equal(eighthDotted.samples44100, Math.round((expectedEighthDotted / 1000) * 44100));
   });
 
-  it('calculates exact fractional timings at 92.4 BPM', () => {
-    const sixteenth = calculateDelayCell(92.4, 16, 'straight');
-    const expectedMs = (240000 / 92.4) / 16;
+  it('calculates exact fractional timings at 92 BPM', () => {
+    const sixteenth = calculateDelayCell(92, 16, 'straight');
+    const expectedMs = (240000 / 92) / 16;
     assert.ok(Math.abs(sixteenth.ms - expectedMs) < 1e-9);
-    assert.equal(formatMs(sixteenth.ms), '162.34');
+    assert.equal(formatMs(sixteenth.ms), '163.04');
   });
 });
 
 describe('Reverb Pre-Delay & Decay (RT60) Engine', () => {
   it('enforces Pre-Delay + Decay === Total Musical Length across all 7 presets and BPMs 20–300', () => {
-    const testBpms = [20, 60, 75, 92.4, 120, 128.5, 140, 174, 240, 300];
+    const testBpms = [20, 60, 75, 92.4, 120, 129, 140, 174, 240, 300];
     for (const bpm of testBpms) {
       const presets = calculateReverbPresets(bpm);
       assert.equal(presets.length, 7);
@@ -389,14 +390,14 @@ describe('Tap Tempo Engine', () => {
 
 describe('Markdown Timing Sheet Export', () => {
   it('generates a complete Markdown sheet with all 7 Reverb presets, Delay, Dynamics, and Swing sections', () => {
-    const custom = calculateReverbTiming(128.5, {
+    const custom = calculateReverbTiming(129, {
       preDelayDenom: 32,
       preDelayVariation: 'straight',
       totalBeats: 4,
     });
-    const md = generateMarkdownSheet(128.5, custom);
+    const md = generateMarkdownSheet(129, custom);
 
-    assert.ok(md.includes('# Studio Timing Sheet — 128.5 BPM'));
+    assert.ok(md.includes('# Studio Timing Sheet — 129 BPM'));
     assert.ok(md.includes('## Reverb Pre-Delay & Decay (RT60)'));
     assert.ok(md.includes('**Hall**'));
     assert.ok(md.includes('**Big Room**'));
