@@ -4,6 +4,8 @@
  */
 
 import {
+  MIN_BPM,
+  MAX_BPM,
   DEFAULT_BPM,
   clampBpm,
   parseBpmInput,
@@ -38,6 +40,8 @@ function cacheDom() {
   dom.deckBeatLed = document.getElementById('deck-beat-led');
   dom.deckLiveReadout = document.getElementById('deck-live-readout');
   dom.bpmInput = document.getElementById('bpm-input');
+  dom.btnBpmDec = document.getElementById('btn-bpm-dec');
+  dom.btnBpmInc = document.getElementById('btn-bpm-inc');
 
   dom.btnTapTempo = document.getElementById('btn-tap-tempo');
   dom.tapLabel = document.getElementById('tap-label');
@@ -176,6 +180,8 @@ function renderAll() {
   const bpmStr = formatBpm(state.bpm);
   const summary = calculateTempoSummary(state.bpm);
   dom.deckLiveReadout.textContent = `1 Beat ${formatMs(summary.beatMs)} ms · 1 Bar ${formatMs(summary.barMs)} ms`;
+  if (dom.btnBpmDec) dom.btnBpmDec.disabled = state.bpm <= MIN_BPM;
+  if (dom.btnBpmInc) dom.btnBpmInc.disabled = state.bpm >= MAX_BPM;
   updateMetronomeUI();
 
   // 1. Reverb Table
@@ -334,6 +340,13 @@ function bindEvents() {
 
   dom.bpmInput.addEventListener('change', commitBpmInput);
   dom.bpmInput.addEventListener('blur', commitBpmInput);
+  dom.bpmInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitBpmInput();
+      dom.bpmInput.select();
+    }
+  });
 
   document.querySelectorAll('.deck-nudge-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -375,23 +388,35 @@ function bindEvents() {
     if (file) handleAudioFileForBpm(file);
   });
 
-  ['dragenter', 'dragover'].forEach((evt) => {
-    window.addEventListener(evt, (e) => {
-      if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
-        e.preventDefault();
-        dom.studioDeck.classList.add('drag-over');
-      }
-    });
+  let dragDepth = 0;
+  const hasFileDrag = (e) =>
+    Boolean(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files'));
+
+  window.addEventListener('dragenter', (e) => {
+    if (!hasFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth += 1;
+    dom.studioDeck.classList.add('drag-over');
   });
 
-  ['dragleave', 'drop'].forEach((evt) => {
-    window.addEventListener(evt, (e) => {
-      if (evt === 'drop') e.preventDefault();
+  window.addEventListener('dragover', (e) => {
+    if (!hasFileDrag(e)) return;
+    e.preventDefault();
+  });
+
+  window.addEventListener('dragleave', (e) => {
+    if (!hasFileDrag(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) {
       dom.studioDeck.classList.remove('drag-over');
-    });
+    }
   });
 
   window.addEventListener('drop', (e) => {
+    if (!hasFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dom.studioDeck.classList.remove('drag-over');
     const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (file) handleAudioFileForBpm(file);
   });
@@ -405,7 +430,9 @@ function bindEvents() {
     if (!btn) return;
     state.reverbUnitMode = btn.dataset.unit;
     dom.reverbUnitFilter.querySelectorAll('.seg-btn').forEach((b) => {
-      b.classList.toggle('active', b === btn);
+      const isActive = b === btn;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
     });
     renderAll();
   });
@@ -413,6 +440,8 @@ function bindEvents() {
   const handleCopyClick = (e) => {
     const btn = e.target.closest('[data-copy]');
     if (btn) {
+      btn.classList.add('copied');
+      window.setTimeout(() => btn.classList.remove('copied'), 550);
       copyTextToClipboard(btn.dataset.copy, btn.dataset.toast);
     }
   };

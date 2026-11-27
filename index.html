@@ -35,7 +35,7 @@
       type="font/woff"
       crossorigin
     />
-    <link rel="stylesheet" href="app.css?v=20261127-1" />
+    <link rel="stylesheet" href="app.css?v=20261127-2" />
   </head>
   <body>
     <a class="skip" href="#main">Skip to calculator</a>
@@ -117,12 +117,15 @@
               </label>
 
               <div class="bpm-nudge-cluster" role="group" aria-label="Adjust BPM by 1">
-                <button type="button" class="deck-nudge-btn" data-nudge="-1" title="Decrease BPM by 1 (-)">−1</button>
-                <button type="button" class="deck-nudge-btn" data-nudge="1" title="Increase BPM by 1 (+)">+1</button>
+                <button type="button" id="btn-bpm-dec" class="deck-nudge-btn" data-nudge="-1" title="Decrease BPM by 1 (-)">−1</button>
+                <button type="button" id="btn-bpm-inc" class="deck-nudge-btn" data-nudge="1" title="Increase BPM by 1 (+)">+1</button>
               </div>
 
-              <span class="deck-live-readout micro" id="deck-live-readout">
-                1 Beat 500.00 ms · 1 Bar 2000.00 ms
+              <span class="deck-readout-wrap">
+                <span class="deck-led" id="deck-beat-led" aria-hidden="true"></span>
+                <span class="deck-live-readout micro" id="deck-live-readout">
+                  1 Beat 500.00 ms · 1 Bar 2000.00 ms
+                </span>
               </span>
             </div>
 
@@ -134,7 +137,6 @@
                 aria-label="Tap tempo (T)"
                 title="Click repeatedly or press T to tap tempo"
               >
-                <span class="deck-led" id="deck-beat-led" aria-hidden="true"></span>
                 <span id="tap-label">Tap</span>
                 <kbd>T</kbd>
               </button>
@@ -179,9 +181,9 @@
           </div>
 
           <div class="seg-group" id="reverb-unit-filter" role="group" aria-label="Reverb units">
-            <button type="button" class="seg-btn active" data-unit="plugin">Plugin (ms / s)</button>
-            <button type="button" class="seg-btn" data-unit="ms">ms</button>
-            <button type="button" class="seg-btn" data-unit="sec">sec</button>
+            <button type="button" class="seg-btn active" data-unit="plugin" aria-pressed="true">Plugin (ms / s)</button>
+            <button type="button" class="seg-btn" data-unit="ms" aria-pressed="false">ms</button>
+            <button type="button" class="seg-btn" data-unit="sec" aria-pressed="false">sec</button>
           </div>
         </div>
 
@@ -250,6 +252,6 @@
 
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-    <script type="module" src="js/app.js?v=20261127-1"></script>
+    <script type="module" src="js/app.js?v=20261127-2"></script>
   </body>
 </html>
